@@ -1,0 +1,3 @@
+[2026-02-27T09:20:00Z] [SESSION-1] INIT Harness initialized for project D:\IdeaProjects\codex-viewer-lite
+[2026-02-27T09:17:06.0433097Z] [SESSION-1] LOCK acquired (pid=16440)
+[2026-02-27T09:17:28.7282203Z] [SESSION-1] Starting [task-001] Bootstrap project baseline and persist plan artifacts (base=ROOT)

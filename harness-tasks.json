@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "created": "2026-02-27T09:20:00Z",
+  "session_config": {
+    "max_tasks_per_session": 20,
+    "max_sessions": 50
+  },
+  "tasks": [
+    {
+      "id": "task-001",
+      "title": "Bootstrap project baseline and persist plan artifacts",
+      "status": "in_progress",
+      "priority": "P0",
+      "depends_on": [],
+      "attempts": 1,
+      "max_attempts": 3,
+      "started_at_commit": "ROOT",
+      "validation": {
+        "command": "pnpm check",
+        "timeout_seconds": 300
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 2,
+          "description": "Scaffold verified and proposed plan/harness files created",
+          "timestamp": "2026-02-27T09:17:28.905Z"
+        }
+      ],
+      "completed_at": null
+    },
+    {
+      "id": "task-002",
+      "title": "Implement Hono read-only APIs, codex parsing services, and SSE watchers",
+      "status": "pending",
+      "priority": "P0",
+      "depends_on": [
+        "task-001"
+      ],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "pnpm check",
+        "timeout_seconds": 420
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-003",
+      "title": "Build WeChat-style UI with i18n and secure Markdown conversation rendering",
+      "status": "pending",
+      "priority": "P0",
+      "depends_on": [
+        "task-002"
+      ],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "pnpm check",
+        "timeout_seconds": 420
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-004",
+      "title": "Add tests, docs, and quality scripts then run full validation",
+      "status": "pending",
+      "priority": "P1",
+      "depends_on": [
+        "task-003"
+      ],
+      "attempts": 0,
+      "max_attempts": 3,
+      "started_at_commit": null,
+      "validation": {
+        "command": "pnpm test --run && pnpm check && pnpm lint",
+        "timeout_seconds": 600
+      },
+      "on_failure": {
+        "cleanup": null
+      },
+      "error_log": [],
+      "checkpoints": [],
+      "completed_at": null
+    }
+  ],
+  "session_count": 1,
+  "last_session": "2026-02-27T09:17:06.079Z"
+}
