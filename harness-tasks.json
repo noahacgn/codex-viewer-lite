@@ -44,9 +44,7 @@
       "title": "Implement Hono read-only APIs, codex parsing services, and SSE watchers",
       "status": "completed",
       "priority": "P0",
-      "depends_on": [
-        "task-001"
-      ],
+      "depends_on": ["task-001"],
       "attempts": 1,
       "max_attempts": 3,
       "started_at_commit": "c921135",
@@ -85,9 +83,7 @@
       "title": "Build WeChat-style UI with i18n and secure Markdown conversation rendering",
       "status": "completed",
       "priority": "P0",
-      "depends_on": [
-        "task-002"
-      ],
+      "depends_on": ["task-002"],
       "attempts": 1,
       "max_attempts": 3,
       "started_at_commit": "1a70365",
@@ -130,11 +126,9 @@
     {
       "id": "task-004",
       "title": "Add tests, docs, and quality scripts then run full validation",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "P1",
-      "depends_on": [
-        "task-003"
-      ],
+      "depends_on": ["task-003"],
       "attempts": 1,
       "max_attempts": 3,
       "started_at_commit": "6dafaf5",
@@ -164,11 +158,17 @@
           "total": 4,
           "description": "Full validation passed: pnpm test, pnpm check, pnpm lint",
           "timestamp": "2026-02-27T09:35:50.889Z"
+        },
+        {
+          "step": 4,
+          "total": 4,
+          "description": "Final docs and scripts committed",
+          "timestamp": "2026-02-27T09:36:37.596Z"
         }
       ],
-      "completed_at": null
+      "completed_at": "2026-02-27T09:36:37.595Z"
     }
   ],
   "session_count": 1,
-  "last_session": "2026-02-27T09:17:06.079Z"
+  "last_session": "2026-02-27T09:36:37.596Z"
 }

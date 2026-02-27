@@ -17,3 +17,7 @@
 [2026-02-27T09:30:40.4076615Z] [SESSION-1] CHECKPOINT [task-004] step=1/4 Installed Biome, Vitest, and adapter-node
 [2026-02-27T09:32:54.8992137Z] [SESSION-1] CHECKPOINT [task-004] step=2/4 Added Biome config, test suites, and updated scripts/README
 [2026-02-27T09:35:50.7789703Z] [SESSION-1] CHECKPOINT [task-004] step=3/4 Full validation passed: pnpm test, pnpm check, pnpm lint
+[2026-02-27T09:36:28.5341500Z] [SESSION-1] CHECKPOINT [task-004] step=4/4 Final docs and scripts committed
+[2026-02-27T09:36:28.5615043Z] [SESSION-1] Completed [task-004] (commit 8e37c5b)
+[2026-02-27T09:36:55.4989017Z] [SESSION-1] STATS tasks_total=4 completed=4 failed=0 pending=0 blocked=0 attempts_total=4 checkpoints=13
+[2026-02-27T09:36:55.5816215Z] [SESSION-1] LOCK released

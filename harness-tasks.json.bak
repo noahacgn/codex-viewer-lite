@@ -130,7 +130,7 @@
     {
       "id": "task-004",
       "title": "Add tests, docs, and quality scripts then run full validation",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "P1",
       "depends_on": [
         "task-003"
@@ -164,11 +164,17 @@
           "total": 4,
           "description": "Full validation passed: pnpm test, pnpm check, pnpm lint",
           "timestamp": "2026-02-27T09:35:50.889Z"
+        },
+        {
+          "step": 4,
+          "total": 4,
+          "description": "Final docs and scripts committed",
+          "timestamp": "2026-02-27T09:36:37.596Z"
         }
       ],
-      "completed_at": null
+      "completed_at": "2026-02-27T09:36:37.595Z"
     }
   ],
   "session_count": 1,
-  "last_session": "2026-02-27T09:17:06.079Z"
+  "last_session": "2026-02-27T09:36:37.596Z"
 }
