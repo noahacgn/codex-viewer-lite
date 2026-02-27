@@ -15,7 +15,8 @@
     "lint": "biome check .",
     "fix": "biome check --write .",
     "test": "vitest --run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration:browser": "node scripts/integration/agent-browser-smoke.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
