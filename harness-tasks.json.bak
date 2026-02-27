@@ -9,7 +9,7 @@
     {
       "id": "task-001",
       "title": "Bootstrap project baseline and persist plan artifacts",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [],
       "attempts": 1,
@@ -29,21 +29,27 @@
           "total": 2,
           "description": "Scaffold verified and proposed plan/harness files created",
           "timestamp": "2026-02-27T09:17:28.905Z"
+        },
+        {
+          "step": 2,
+          "total": 2,
+          "description": "Initial repository commit created with harness baseline",
+          "timestamp": "2026-02-27T09:17:53.359Z"
         }
       ],
-      "completed_at": null
+      "completed_at": "2026-02-27T09:17:53.358Z"
     },
     {
       "id": "task-002",
       "title": "Implement Hono read-only APIs, codex parsing services, and SSE watchers",
-      "status": "pending",
+      "status": "in_progress",
       "priority": "P0",
       "depends_on": [
         "task-001"
       ],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "c921135",
       "validation": {
         "command": "pnpm check",
         "timeout_seconds": 420
@@ -52,7 +58,20 @@
         "cleanup": null
       },
       "error_log": [],
-      "checkpoints": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 3,
+          "description": "Backend service files created",
+          "timestamp": "2026-02-27T09:22:35.020Z"
+        },
+        {
+          "step": 2,
+          "total": 3,
+          "description": "Hono routes and SSE endpoint wired through hooks.server",
+          "timestamp": "2026-02-27T09:23:48.028Z"
+        }
+      ],
       "completed_at": null
     },
     {
