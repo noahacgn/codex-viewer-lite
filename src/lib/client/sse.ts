@@ -26,6 +26,13 @@ export const startSse = (onRefresh: () => void) => {
   connectionState.set("connecting");
   source = new EventSource("/api/events/state_changes");
 
+  const handleEvent = (event: MessageEvent<string>) => {
+    const payload = JSON.parse(event.data) as SseEvent;
+    if (payload.type === "project_changed" || payload.type === "session_changed") {
+      scheduleRefresh(onRefresh);
+    }
+  };
+
   source.onopen = () => {
     connectionState.set("connected");
   };
@@ -34,12 +41,9 @@ export const startSse = (onRefresh: () => void) => {
     connectionState.set("reconnecting");
   };
 
-  source.onmessage = (event) => {
-    const payload = JSON.parse(event.data) as SseEvent;
-    if (payload.type === "project_changed" || payload.type === "session_changed") {
-      scheduleRefresh(onRefresh);
-    }
-  };
+  source.onmessage = handleEvent;
+  source.addEventListener("project_changed", handleEvent as EventListener);
+  source.addEventListener("session_changed", handleEvent as EventListener);
 
   return () => {
     if (!source) {

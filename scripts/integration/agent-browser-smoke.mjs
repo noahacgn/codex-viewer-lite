@@ -208,7 +208,7 @@ const runCommand = async (name, command, args, options = {}) => {
     console.error(result.stderr.trim());
   }
 
-  if (result.timedOut) {
+  if (result.timedOut && !allowFailure) {
     throw new Error(`TIMEOUT(${name}) after ${timeoutMs}ms`);
   }
   if (result.code !== 0 && !allowFailure) {
@@ -364,7 +364,11 @@ const stopProcess = async (name, child) => {
 };
 
 const runIntegrationFlow = async (env) => {
-  await runAgent("Open /projects", ["open", `${BASE_URL}/projects`], env);
+  await runAgent("Close stale browser session", ["close"], env, {
+    allowFailure: true,
+    timeoutMs: 5000,
+  });
+  await runAgent("Open /projects", ["open", `${BASE_URL}/projects`], env, { timeoutMs: 12000 });
   await waitForUrlRegex(env, "/projects", /\/projects\/?$/);
 
   await runAgent("Capture interactive refs on /projects", ["snapshot", "-i"], env);
@@ -394,13 +398,7 @@ const runIntegrationFlow = async (env) => {
   await waitForUrlRegex(env, "project sessions after back", /\/projects\/[^/]+$/);
 
   await appendAssistantMessage();
-  try {
-    await waitForSessionCardCount(env, 3, 4000);
-  } catch (error) {
-    console.warn(`[WARN] SSE auto-refresh not observed, retrying after reload: ${String(error)}`);
-    await runAgent("Reload project sessions page", ["reload"], env);
-    await waitForSessionCardCount(env, 3, 7000);
-  }
+  await waitForSessionCardCount(env, 3, 7000);
 };
 
 const safeCloseBrowser = async (env) => {
