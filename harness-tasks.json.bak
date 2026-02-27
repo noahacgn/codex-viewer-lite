@@ -42,7 +42,7 @@
     {
       "id": "task-002",
       "title": "Implement Hono read-only APIs, codex parsing services, and SSE watchers",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [
         "task-001"
@@ -70,21 +70,27 @@
           "total": 3,
           "description": "Hono routes and SSE endpoint wired through hooks.server",
           "timestamp": "2026-02-27T09:23:48.028Z"
+        },
+        {
+          "step": 3,
+          "total": 3,
+          "description": "Backend validation passed with pnpm check",
+          "timestamp": "2026-02-27T09:24:06.192Z"
         }
       ],
-      "completed_at": null
+      "completed_at": "2026-02-27T09:24:06.191Z"
     },
     {
       "id": "task-003",
       "title": "Build WeChat-style UI with i18n and secure Markdown conversation rendering",
-      "status": "pending",
+      "status": "in_progress",
       "priority": "P0",
       "depends_on": [
         "task-002"
       ],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "1a70365",
       "validation": {
         "command": "pnpm check",
         "timeout_seconds": 420
@@ -93,7 +99,26 @@
         "cleanup": null
       },
       "error_log": [],
-      "checkpoints": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 4,
+          "description": "i18n stores, dictionaries, and global WeChat-style tokens added",
+          "timestamp": "2026-02-27T09:28:56.466Z"
+        },
+        {
+          "step": 2,
+          "total": 4,
+          "description": "Projects, sessions, and conversation routes implemented",
+          "timestamp": "2026-02-27T09:29:52.283Z"
+        },
+        {
+          "step": 3,
+          "total": 4,
+          "description": "Secure markdown renderer and SSE-driven invalidateAll connected",
+          "timestamp": "2026-02-27T09:29:52.284Z"
+        }
+      ],
       "completed_at": null
     },
     {

@@ -5,3 +5,9 @@
 [2026-02-27T09:22:34.9674330Z] [SESSION-1] Starting [task-002] Implement Hono read-only APIs, codex parsing services, and SSE watchers (base=c921135)
 [2026-02-27T09:22:34.9955984Z] [SESSION-1] CHECKPOINT [task-002] step=1/3 Backend service files created
 [2026-02-27T09:23:47.9143720Z] [SESSION-1] CHECKPOINT [task-002] step=2/3 Hono routes and SSE endpoint wired through hooks.server
+[2026-02-27T09:24:06.1326234Z] [SESSION-1] CHECKPOINT [task-002] step=3/3 Backend validation passed with pnpm check
+[2026-02-27T09:24:06.1609352Z] [SESSION-1] Completed [task-002] (commit 1a70365)
+[2026-02-27T09:24:31.4178455Z] [SESSION-1] Starting [task-003] Build WeChat-style UI with i18n and secure Markdown conversation rendering (base=1a70365)
+[2026-02-27T09:28:56.3524434Z] [SESSION-1] CHECKPOINT [task-003] step=1/4 i18n stores, dictionaries, and global WeChat-style tokens added
+[2026-02-27T09:29:52.1663225Z] [SESSION-1] CHECKPOINT [task-003] step=2/4 Projects, sessions, and conversation routes implemented
+[2026-02-27T09:29:52.2514767Z] [SESSION-1] CHECKPOINT [task-003] step=3/4 Secure markdown renderer and SSE-driven invalidateAll connected
