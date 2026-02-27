@@ -1,5 +1,5 @@
-import { encodeProjectId } from "$lib/server/ids";
 import { getWorkspaceName, listSessionRecords } from "$lib/server/codex/session-files";
+import { encodeProjectId } from "$lib/server/ids";
 import { getSessions } from "$lib/server/services/sessions";
 import type { Project } from "$lib/shared/types";
 
@@ -32,7 +32,7 @@ export const getProjects = async (): Promise<Project[]> => {
     if (!current) {
       byWorkspace.set(record.workspacePath, {
         sessionCount: 1,
-        latest: record.lastModifiedAt
+        latest: record.lastModifiedAt,
       });
       continue;
     }
@@ -52,8 +52,8 @@ export const getProjects = async (): Promise<Project[]> => {
         workspaceName: getWorkspaceName(workspacePath),
         workspacePath,
         lastSessionAt: aggregate.latest ? aggregate.latest.toISOString() : null,
-        sessionCount: aggregate.sessionCount
-      }
+        sessionCount: aggregate.sessionCount,
+      },
     });
   }
 

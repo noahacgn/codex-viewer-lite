@@ -1,8 +1,8 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { decodeProjectId, decodeSessionId, encodeSessionId } from "$lib/server/ids";
 import { parseCodexSession } from "$lib/server/codex/parse-session";
 import { listSessionRecords, readSessionHeader } from "$lib/server/codex/session-files";
+import { decodeProjectId, decodeSessionId, encodeSessionId } from "$lib/server/ids";
 import { codexSessionsRootPath } from "$lib/server/paths";
 import type { Session, SessionDetail, SessionMeta } from "$lib/shared/types";
 
@@ -29,7 +29,7 @@ const toSessionMeta = async (filePath: string, lastModifiedAt: Date | null): Pro
     messageCount: messages.length,
     lastModifiedAt: toIsoOrNull(lastModifiedAt),
     startedAt: parsed.sessionMeta.timestamp,
-    firstUserMessage: parsed.turns.find((turn) => turn.userMessage)?.userMessage?.text ?? null
+    firstUserMessage: parsed.turns.find((turn) => turn.userMessage)?.userMessage?.text ?? null,
   };
 };
 
@@ -45,9 +45,9 @@ export const getSessions = async (projectId: string): Promise<Session[]> => {
         id: encodeSessionId(record.filePath),
         sessionUuid: record.sessionUuid,
         jsonlFilePath: record.filePath,
-        meta
+        meta,
       } satisfies Session;
-    })
+    }),
   );
 
   sessions.sort((a, b) => {
@@ -83,7 +83,7 @@ export const getSession = async (projectId: string, sessionId: string): Promise<
     jsonlFilePath: sessionPath,
     meta,
     turns: parsed.turns,
-    sessionMeta: parsed.sessionMeta
+    sessionMeta: parsed.sessionMeta,
   };
 };
 

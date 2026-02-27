@@ -1,4 +1,5 @@
 node_modules
+.harness-lock
 
 # Output
 .output

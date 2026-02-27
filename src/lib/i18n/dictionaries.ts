@@ -34,7 +34,7 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.instructions": "会话说明",
     "session.noMessages": "该会话暂无可显示消息",
     "session.toolUse": "工具调用",
-    "session.toolResult": "工具结果"
+    "session.toolResult": "工具结果",
   },
   "en-US": {
     "app.name": "Codex Viewer Lite",
@@ -67,6 +67,6 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.instructions": "Session instructions",
     "session.noMessages": "No conversation messages found",
     "session.toolUse": "Tool call",
-    "session.toolResult": "Tool result"
-  }
+    "session.toolResult": "Tool result",
+  },
 };

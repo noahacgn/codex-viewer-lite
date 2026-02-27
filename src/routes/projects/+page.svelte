@@ -1,55 +1,55 @@
 <script lang="ts">
-  import { locale, t } from "$lib/i18n/store";
-  import type { Project } from "$lib/shared/types";
-  import type { PageData } from "./$types";
+import { locale, t } from "$lib/i18n/store";
+import type { Project } from "$lib/shared/types";
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-  let search = $state("");
-  let sortKey = $state<"updated" | "name" | "count">("updated");
-  let descending = $state(true);
+let search = $state("");
+let sortKey = $state<"updated" | "name" | "count">("updated");
+let descending = $state(true);
 
-  const formatDate = (iso: string | null) => {
-    if (!iso) {
-      return "—";
+const formatDate = (iso: string | null) => {
+  if (!iso) {
+    return "—";
+  }
+  return new Date(iso).toLocaleString($locale);
+};
+
+const filteredProjects = $derived.by(() => {
+  const keyword = search.trim().toLowerCase();
+  const scoped = keyword
+    ? data.projects.filter((project) => {
+        const name = project.meta.workspaceName.toLowerCase();
+        const path = project.meta.workspacePath.toLowerCase();
+        return name.includes(keyword) || path.includes(keyword);
+      })
+    : data.projects;
+
+  const sorted = [...scoped].sort((a, b) => {
+    if (sortKey === "name") {
+      return a.meta.workspaceName.localeCompare(b.meta.workspaceName);
     }
-    return new Date(iso).toLocaleString($locale);
-  };
-
-  const filteredProjects = $derived.by(() => {
-    const keyword = search.trim().toLowerCase();
-    const scoped = keyword
-      ? data.projects.filter((project) => {
-          const name = project.meta.workspaceName.toLowerCase();
-          const path = project.meta.workspacePath.toLowerCase();
-          return name.includes(keyword) || path.includes(keyword);
-        })
-      : data.projects;
-
-    const sorted = [...scoped].sort((a, b) => {
-      if (sortKey === "name") {
-        return a.meta.workspaceName.localeCompare(b.meta.workspaceName);
-      }
-      if (sortKey === "count") {
-        return a.meta.sessionCount - b.meta.sessionCount;
-      }
-      const aTime = a.meta.lastSessionAt ? new Date(a.meta.lastSessionAt).getTime() : 0;
-      const bTime = b.meta.lastSessionAt ? new Date(b.meta.lastSessionAt).getTime() : 0;
-      return aTime - bTime;
-    });
-
-    return descending ? sorted.reverse() : sorted;
+    if (sortKey === "count") {
+      return a.meta.sessionCount - b.meta.sessionCount;
+    }
+    const aTime = a.meta.lastSessionAt ? new Date(a.meta.lastSessionAt).getTime() : 0;
+    const bTime = b.meta.lastSessionAt ? new Date(b.meta.lastSessionAt).getTime() : 0;
+    return aTime - bTime;
   });
 
-  const sortLabel = (key: "updated" | "name" | "count") => {
-    if (key === "name") {
-      return t("projects.sort.name", $locale);
-    }
-    if (key === "count") {
-      return t("projects.sort.count", $locale);
-    }
-    return t("projects.sort.updated", $locale);
-  };
+  return descending ? sorted.reverse() : sorted;
+});
+
+const sortLabel = (key: "updated" | "name" | "count") => {
+  if (key === "name") {
+    return t("projects.sort.name", $locale);
+  }
+  if (key === "count") {
+    return t("projects.sort.count", $locale);
+  }
+  return t("projects.sort.updated", $locale);
+};
 </script>
 
 <section class="card" style="padding:1rem; margin-bottom:0.9rem;">

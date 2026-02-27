@@ -1,9 +1,5 @@
 const toBase64Url = (value: string) => {
-  return Buffer.from(value, "utf-8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+  return Buffer.from(value, "utf-8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 };
 
 const fromBase64Url = (value: string) => {

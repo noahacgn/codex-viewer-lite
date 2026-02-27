@@ -83,7 +83,7 @@
     {
       "id": "task-003",
       "title": "Build WeChat-style UI with i18n and secure Markdown conversation rendering",
-      "status": "in_progress",
+      "status": "completed",
       "priority": "P0",
       "depends_on": [
         "task-002"
@@ -117,21 +117,27 @@
           "total": 4,
           "description": "Secure markdown renderer and SSE-driven invalidateAll connected",
           "timestamp": "2026-02-27T09:29:52.284Z"
+        },
+        {
+          "step": 4,
+          "total": 4,
+          "description": "UI validation passed with pnpm check",
+          "timestamp": "2026-02-27T09:30:08.166Z"
         }
       ],
-      "completed_at": null
+      "completed_at": "2026-02-27T09:30:08.165Z"
     },
     {
       "id": "task-004",
       "title": "Add tests, docs, and quality scripts then run full validation",
-      "status": "pending",
+      "status": "in_progress",
       "priority": "P1",
       "depends_on": [
         "task-003"
       ],
-      "attempts": 0,
+      "attempts": 1,
       "max_attempts": 3,
-      "started_at_commit": null,
+      "started_at_commit": "6dafaf5",
       "validation": {
         "command": "pnpm test --run && pnpm check && pnpm lint",
         "timeout_seconds": 600
@@ -140,7 +146,26 @@
         "cleanup": null
       },
       "error_log": [],
-      "checkpoints": [],
+      "checkpoints": [
+        {
+          "step": 1,
+          "total": 4,
+          "description": "Installed Biome, Vitest, and adapter-node",
+          "timestamp": "2026-02-27T09:30:40.434Z"
+        },
+        {
+          "step": 2,
+          "total": 4,
+          "description": "Added Biome config, test suites, and updated scripts/README",
+          "timestamp": "2026-02-27T09:32:55.013Z"
+        },
+        {
+          "step": 3,
+          "total": 4,
+          "description": "Full validation passed: pnpm test, pnpm check, pnpm lint",
+          "timestamp": "2026-02-27T09:35:50.889Z"
+        }
+      ],
       "completed_at": null
     }
   ],

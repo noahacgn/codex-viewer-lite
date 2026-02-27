@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { decodeProjectId } from "$lib/server/ids";
 import { getSseEventBus } from "$lib/server/events/event-bus";
 import { getFileWatcherService } from "$lib/server/events/file-watcher";
 import { formatSseEvent } from "$lib/server/events/sse";
-import { getProjectWithSessions, getProjects } from "$lib/server/services/projects";
+import { decodeProjectId } from "$lib/server/ids";
+import { getProjects, getProjectWithSessions } from "$lib/server/services/projects";
 import { getSession } from "$lib/server/services/sessions";
 
 const createSseResponse = () => {
@@ -37,15 +37,15 @@ const createSseResponse = () => {
       if (unsubscribe) {
         unsubscribe();
       }
-    }
+    },
   });
 
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive"
-    }
+      Connection: "keep-alive",
+    },
   });
 };
 

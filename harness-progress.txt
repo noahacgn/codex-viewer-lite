@@ -11,3 +11,9 @@
 [2026-02-27T09:28:56.3524434Z] [SESSION-1] CHECKPOINT [task-003] step=1/4 i18n stores, dictionaries, and global WeChat-style tokens added
 [2026-02-27T09:29:52.1663225Z] [SESSION-1] CHECKPOINT [task-003] step=2/4 Projects, sessions, and conversation routes implemented
 [2026-02-27T09:29:52.2514767Z] [SESSION-1] CHECKPOINT [task-003] step=3/4 Secure markdown renderer and SSE-driven invalidateAll connected
+[2026-02-27T09:30:08.1083908Z] [SESSION-1] CHECKPOINT [task-003] step=4/4 UI validation passed with pnpm check
+[2026-02-27T09:30:08.1368461Z] [SESSION-1] Completed [task-003] (commit 6dafaf5)
+[2026-02-27T09:30:40.3784569Z] [SESSION-1] Starting [task-004] Add tests, docs, and quality scripts then run full validation (base=6dafaf5)
+[2026-02-27T09:30:40.4076615Z] [SESSION-1] CHECKPOINT [task-004] step=1/4 Installed Biome, Vitest, and adapter-node
+[2026-02-27T09:32:54.8992137Z] [SESSION-1] CHECKPOINT [task-004] step=2/4 Added Biome config, test suites, and updated scripts/README
+[2026-02-27T09:35:50.7789703Z] [SESSION-1] CHECKPOINT [task-004] step=3/4 Full validation passed: pnpm test, pnpm check, pnpm lint

@@ -1,24 +1,24 @@
 <script lang="ts">
-  import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
-  import { locale, t } from "$lib/i18n/store";
-  import type { PageData } from "./$types";
+import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
+import { locale, t } from "$lib/i18n/store";
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-  const formatDate = (iso: string | null) => {
-    if (!iso) {
-      return "—";
-    }
-    return new Date(iso).toLocaleString($locale);
-  };
+const formatDate = (iso: string | null) => {
+  if (!iso) {
+    return "—";
+  }
+  return new Date(iso).toLocaleString($locale);
+};
 
-  const sessionTitle = () => {
-    const firstUser = data.session.turns.find((turn) => turn.userMessage)?.userMessage;
-    if (!firstUser?.text) {
-      return data.session.id;
-    }
-    return firstUser.text.length > 120 ? `${firstUser.text.slice(0, 120)}...` : firstUser.text;
-  };
+const sessionTitle = () => {
+  const firstUser = data.session.turns.find((turn) => turn.userMessage)?.userMessage;
+  if (!firstUser?.text) {
+    return data.session.id;
+  }
+  return firstUser.text.length > 120 ? `${firstUser.text.slice(0, 120)}...` : firstUser.text;
+};
 </script>
 
 <section class="card" style="padding:1rem; margin-bottom:0.9rem;">

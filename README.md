@@ -1,42 +1,53 @@
-# sv
+# Codex Viewer Lite
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Read-only Codex session viewer rebuilt with `SvelteKit + Hono`.
 
-## Creating a project
+## Key Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+1. Project list from local `~/.codex/sessions`.
+2. Session list and session detail pages.
+3. Main chat timeline rendered with Markdown.
+4. Live refresh via SSE (`project_changed`, `session_changed`).
+5. Built-in i18n (`简体中文` + `English`) with auto-detect and persisted preference.
+6. WeChat-inspired lightweight UI.
 
-```sh
-# create a new project
-npx sv create my-app
+## Scope Boundary
+
+This project intentionally excludes write/agent-control functions:
+
+1. No new chat creation.
+2. No resume chat.
+3. No task abort.
+4. No Diff modal.
+5. No MCP panel.
+6. No file-completion panel.
+
+## Commands
+
+```bash
+pnpm install
+pnpm dev
+pnpm build
+pnpm start
+pnpm test
+pnpm check
+pnpm lint
 ```
 
-To recreate this project with the same configuration:
+## Routes
 
-```sh
-# recreate this project
-pnpm dlx sv create --template minimal --types ts --install pnpm codex-viewer-lite
-```
+1. `/projects`
+2. `/projects/:projectId`
+3. `/projects/:projectId/sessions/:sessionId`
+4. `/api/projects`
+5. `/api/projects/:projectId`
+6. `/api/projects/:projectId/sessions/:sessionId`
+7. `/api/events/state_changes`
 
-## Developing
+## Tech Stack
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+1. SvelteKit 2 + Svelte 5
+2. Hono 4 (API routing)
+3. Node file system readers for Codex JSONL files
+4. marked (Markdown rendering)
+5. Biome + Vitest

@@ -3,7 +3,7 @@ import type {
   CodexSessionMeta,
   CodexSessionTurn,
   CodexToolCall,
-  CodexToolResult
+  CodexToolResult,
 } from "$lib/shared/types";
 
 type CodexLogLine = {
@@ -62,7 +62,7 @@ const createTurn = (index: number): CodexSessionTurn => {
     assistantMessages: [],
     reasonings: [],
     toolCalls: [],
-    toolResults: []
+    toolResults: [],
   };
 };
 
@@ -93,11 +93,7 @@ const parseMessagePayload = (payload: unknown): { role: "user" | "assistant"; te
   return { role, text };
 };
 
-const addMessageToTurn = (
-  turns: CodexSessionTurn[],
-  role: "user" | "assistant",
-  message: CodexMessage
-) => {
+const addMessageToTurn = (turns: CodexSessionTurn[], role: "user" | "assistant", message: CodexMessage) => {
   if (turns.length === 0) {
     turns.push(createTurn(1));
   }
@@ -123,9 +119,17 @@ const addMessageToTurn = (
 
 const ensureTurn = (turns: CodexSessionTurn[]) => {
   if (turns.length === 0) {
-    turns.push(createTurn(1));
+    const created = createTurn(1);
+    turns.push(created);
+    return created;
   }
-  return turns[turns.length - 1]!;
+  const lastTurn = turns[turns.length - 1];
+  if (lastTurn) {
+    return lastTurn;
+  }
+  const fallback = createTurn(1);
+  turns.push(fallback);
+  return fallback;
 };
 
 export const parseCodexSession = (content: string) => {
@@ -138,7 +142,7 @@ export const parseCodexSession = (content: string) => {
     instructions: null,
     originator: null,
     cliVersion: null,
-    timestamp: null
+    timestamp: null,
   };
 
   const lines = content.split("\n").map((line) => line.trim());
@@ -169,14 +173,10 @@ export const parseCodexSession = (content: string) => {
       sessionMeta.cwd = typeof payload.cwd === "string" ? payload.cwd : sessionMeta.cwd;
       sessionMeta.instructions =
         typeof payload.instructions === "string" ? payload.instructions : sessionMeta.instructions;
-      sessionMeta.originator =
-        typeof payload.originator === "string" ? payload.originator : sessionMeta.originator;
-      sessionMeta.cliVersion =
-        typeof payload.cli_version === "string" ? payload.cli_version : sessionMeta.cliVersion;
+      sessionMeta.originator = typeof payload.originator === "string" ? payload.originator : sessionMeta.originator;
+      sessionMeta.cliVersion = typeof payload.cli_version === "string" ? payload.cli_version : sessionMeta.cliVersion;
       sessionMeta.timestamp =
-        typeof payload.timestamp === "string"
-          ? payload.timestamp
-          : sessionMeta.timestamp ?? timestamp;
+        typeof payload.timestamp === "string" ? payload.timestamp : (sessionMeta.timestamp ?? timestamp);
       continue;
     }
 
@@ -190,7 +190,7 @@ export const parseCodexSession = (content: string) => {
           id: createEntryId(messagePayload.role),
           text: messagePayload.text,
           timestamp,
-          source: "response_item"
+          source: "response_item",
         };
         addMessageToTurn(turns, messagePayload.role, message);
         lastMessageByRole.set(messagePayload.role, messagePayload.text);
@@ -198,9 +198,7 @@ export const parseCodexSession = (content: string) => {
       }
 
       const responseType =
-        parsed.payload && typeof parsed.payload === "object"
-          ? (parsed.payload as { type?: unknown }).type
-          : null;
+        parsed.payload && typeof parsed.payload === "object" ? (parsed.payload as { type?: unknown }).type : null;
 
       if (responseType === "function_call") {
         const payload = parsed.payload as {
@@ -218,7 +216,7 @@ export const parseCodexSession = (content: string) => {
                 ? JSON.stringify(payload.arguments)
                 : null,
           callId: typeof payload.call_id === "string" ? payload.call_id : null,
-          timestamp
+          timestamp,
         };
         const turn = ensureTurn(turns);
         turn.toolCalls.push(toolCall);
@@ -239,7 +237,7 @@ export const parseCodexSession = (content: string) => {
               : payload.output
                 ? JSON.stringify(payload.output)
                 : null,
-          timestamp
+          timestamp,
         };
         const mappedTurn = toolResult.callId ? callIdToTurn.get(toolResult.callId) : null;
         const turn = mappedTurn ?? ensureTurn(turns);
@@ -264,7 +262,7 @@ export const parseCodexSession = (content: string) => {
         id: createEntryId(role),
         text,
         timestamp,
-        source: "event_msg"
+        source: "event_msg",
       };
       addMessageToTurn(turns, role, message);
       lastMessageByRole.set(role, text);
@@ -273,6 +271,6 @@ export const parseCodexSession = (content: string) => {
 
   return {
     turns,
-    sessionMeta
+    sessionMeta,
   };
 };

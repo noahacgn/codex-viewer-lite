@@ -1,22 +1,22 @@
 <script lang="ts">
-  import "../app.css";
-  import { invalidateAll } from "$app/navigation";
-  import { onMount } from "svelte";
-  import favicon from "$lib/assets/favicon.svg";
-  import { startSse } from "$lib/client/sse";
-  import LanguageSwitcher from "$lib/components/LanguageSwitcher.svelte";
-  import SseStatus from "$lib/components/SseStatus.svelte";
-  import { initializeLocale, locale, t } from "$lib/i18n/store";
+import "../app.css";
+import { onMount } from "svelte";
+import { invalidateAll } from "$app/navigation";
+import favicon from "$lib/assets/favicon.svg";
+import { startSse } from "$lib/client/sse";
+import LanguageSwitcher from "$lib/components/LanguageSwitcher.svelte";
+import SseStatus from "$lib/components/SseStatus.svelte";
+import { initializeLocale, locale, t } from "$lib/i18n/store";
 
-  let { children } = $props();
+let { children } = $props();
 
-  onMount(() => {
-    initializeLocale();
-    const stop = startSse(() => {
-      void invalidateAll();
-    });
-    return stop;
+onMount(() => {
+  initializeLocale();
+  const stop = startSse(() => {
+    void invalidateAll();
   });
+  return stop;
+});
 </script>
 
 <svelte:head>

@@ -26,7 +26,7 @@ export const getHistoryTimestamps = async (): Promise<Map<string, Date>> => {
   const stream = createReadStream(codexHistoryFilePath, { encoding: "utf-8" });
   const reader = createInterface({
     input: stream,
-    crlfDelay: Number.POSITIVE_INFINITY
+    crlfDelay: Number.POSITIVE_INFINITY,
   });
 
   for await (const line of reader) {

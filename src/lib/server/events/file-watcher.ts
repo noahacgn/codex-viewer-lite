@@ -1,9 +1,9 @@
-import { existsSync, watch, type FSWatcher } from "node:fs";
+import { existsSync, type FSWatcher, watch } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { encodeProjectId, encodeSessionId } from "$lib/server/ids";
 import { readSessionHeader } from "$lib/server/codex/session-files";
-import { codexHistoryFilePath, codexSessionsRootPath } from "$lib/server/paths";
 import { getSseEventBus } from "$lib/server/events/event-bus";
+import { encodeProjectId, encodeSessionId } from "$lib/server/ids";
+import { codexHistoryFilePath, codexSessionsRootPath } from "$lib/server/paths";
 
 const withSafePath = (rootPath: string, relativePath: string) => {
   try {
@@ -32,20 +32,16 @@ class FileWatcherService {
       return;
     }
 
-    const watcher = watch(
-      codexSessionsRootPath,
-      { recursive: true },
-      (eventType, filename) => {
-        if (!filename || !filename.endsWith(".jsonl")) {
-          return;
-        }
-        const fullPath = withSafePath(codexSessionsRootPath, filename);
-        if (!fullPath) {
-          return;
-        }
-        void this.handleSessionFileEvent(fullPath, eventType);
+    const watcher = watch(codexSessionsRootPath, { recursive: true }, (eventType, filename) => {
+      if (!filename || !filename.endsWith(".jsonl")) {
+        return;
       }
-    );
+      const fullPath = withSafePath(codexSessionsRootPath, filename);
+      if (!fullPath) {
+        return;
+      }
+      void this.handleSessionFileEvent(fullPath, eventType);
+    });
 
     this.watchers.push(watcher);
   }
@@ -84,5 +80,9 @@ export const getFileWatcherService = () => {
   if (!store[globalSymbol]) {
     store[globalSymbol] = new FileWatcherService();
   }
-  return store[globalSymbol]!;
+  const watcher = store[globalSymbol];
+  if (!watcher) {
+    throw new Error("Failed to initialize file watcher");
+  }
+  return watcher;
 };

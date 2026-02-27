@@ -1,6 +1,6 @@
-import { browser } from "$app/environment";
 import { writable } from "svelte/store";
-import { type Locale, SUPPORTED_LOCALES, dictionaries } from "$lib/i18n/dictionaries";
+import { browser } from "$app/environment";
+import { dictionaries, type Locale, SUPPORTED_LOCALES } from "$lib/i18n/dictionaries";
 
 const LOCALE_KEY = "cv-lite.locale";
 

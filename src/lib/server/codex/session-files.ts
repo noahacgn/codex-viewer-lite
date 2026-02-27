@@ -24,7 +24,7 @@ const readFirstLine = async (filePath: string): Promise<string | null> => {
     let buffer = "";
     const stream = createReadStream(filePath, {
       encoding: "utf-8",
-      highWaterMark: 4 * 1024
+      highWaterMark: 4 * 1024,
     });
 
     stream.on("data", (chunk) => {
@@ -73,7 +73,7 @@ export const readSessionHeader = async (filePath: string): Promise<SessionHeader
           : typeof parsed.timestamp === "string"
             ? parsed.timestamp
             : null,
-      instructions: typeof parsed.payload?.instructions === "string" ? parsed.payload.instructions : null
+      instructions: typeof parsed.payload?.instructions === "string" ? parsed.payload.instructions : null,
     };
   } catch {
     return null;
@@ -132,7 +132,7 @@ export const listSessionRecords = async (): Promise<SessionRecord[]> => {
       modifiedAt = null;
     }
 
-    const historyTimestamp = header.sessionUuid ? historyMap.get(header.sessionUuid) ?? null : null;
+    const historyTimestamp = header.sessionUuid ? (historyMap.get(header.sessionUuid) ?? null) : null;
     if (historyTimestamp && (!modifiedAt || historyTimestamp > modifiedAt)) {
       modifiedAt = historyTimestamp;
     }
@@ -140,7 +140,7 @@ export const listSessionRecords = async (): Promise<SessionRecord[]> => {
     records.push({
       ...header,
       filePath,
-      lastModifiedAt: modifiedAt
+      lastModifiedAt: modifiedAt,
     });
   }
 

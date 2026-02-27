@@ -1,22 +1,22 @@
 <script lang="ts">
-  import { locale, t } from "$lib/i18n/store";
-  import type { PageData } from "./$types";
+import { locale, t } from "$lib/i18n/store";
+import type { PageData } from "./$types";
 
-  let { data }: { data: PageData } = $props();
+let { data }: { data: PageData } = $props();
 
-  const formatDate = (iso: string | null) => {
-    if (!iso) {
-      return "—";
-    }
-    return new Date(iso).toLocaleString($locale);
-  };
+const formatDate = (iso: string | null) => {
+  if (!iso) {
+    return "—";
+  }
+  return new Date(iso).toLocaleString($locale);
+};
 
-  const sessionTitle = (message: string | null, path: string) => {
-    if (!message) {
-      return path.split(/[\\/]/).at(-1) ?? path;
-    }
-    return message.length > 80 ? `${message.slice(0, 80)}...` : message;
-  };
+const sessionTitle = (message: string | null, path: string) => {
+  if (!message) {
+    return path.split(/[\\/]/).at(-1) ?? path;
+  }
+  return message.length > 80 ? `${message.slice(0, 80)}...` : message;
+};
 </script>
 
 <section class="card" style="padding:1rem; margin-bottom:0.9rem;">

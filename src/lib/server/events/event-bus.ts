@@ -9,7 +9,7 @@ const withCommonFields = <T extends Omit<SseEvent, "id" | "timestamp">>(event: T
   return {
     ...event,
     id: createEventId(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   } as SseEvent;
 };
 
@@ -30,20 +30,13 @@ class SseEventBus {
   }
 
   public emitProjectChanged(projectId: string | null, fileEventType: string) {
-    this.emitter.emit(
-      "event",
-      withCommonFields({ type: "project_changed", data: { projectId, fileEventType } })
-    );
+    this.emitter.emit("event", withCommonFields({ type: "project_changed", data: { projectId, fileEventType } }));
   }
 
-  public emitSessionChanged(
-    projectId: string | null,
-    sessionId: string | null,
-    fileEventType: string
-  ) {
+  public emitSessionChanged(projectId: string | null, sessionId: string | null, fileEventType: string) {
     this.emitter.emit(
       "event",
-      withCommonFields({ type: "session_changed", data: { projectId, sessionId, fileEventType } })
+      withCommonFields({ type: "session_changed", data: { projectId, sessionId, fileEventType } }),
     );
   }
 }
@@ -55,5 +48,9 @@ export const getSseEventBus = () => {
   if (!store[globalSymbol]) {
     store[globalSymbol] = new SseEventBus();
   }
-  return store[globalSymbol]!;
+  const bus = store[globalSymbol];
+  if (!bus) {
+    throw new Error("Failed to initialize SSE event bus");
+  }
+  return bus;
 };
