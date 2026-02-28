@@ -172,6 +172,50 @@ select {
   color: var(--muted);
 }
 
+.tool-group {
+  margin: 0;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 0.55rem 0.6rem;
+}
+
+.tool-group[open] {
+  border-color: #93c5fd;
+  background: #f1f7ff;
+}
+
+.tool-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tool-summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-summary::before {
+  content: ">";
+  color: var(--muted);
+  font-size: 0.8rem;
+  transform-origin: 45% 55%;
+  transition: transform 140ms ease;
+}
+
+.tool-group[open] > .tool-summary::before {
+  transform: rotate(90deg);
+}
+
+.tool-summary:focus-visible {
+  outline: 2px solid #0b76d1;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .tool-card {
   margin-top: 0.5rem;
   border: 1px dashed #93c5fd;

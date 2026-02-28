@@ -77,15 +77,17 @@ const sessionTitle = () => {
         {#if turn.toolCalls.length > 0}
           <article class="chat-row">
             <div class="chat-bubble">
-              <strong>{t("session.toolUse", $locale)}</strong>
-              {#each turn.toolCalls as call (call.id)}
-                <div class="tool-card">
-                  <div><strong>{call.name}</strong></div>
-                  {#if call.arguments}
-                    <pre class="mono" style="white-space:pre-wrap; margin:0.4rem 0 0;">{call.arguments}</pre>
-                  {/if}
-                </div>
-              {/each}
+              <details class="tool-group">
+                <summary class="tool-summary">{t("session.toolUse", $locale)} ({turn.toolCalls.length})</summary>
+                {#each turn.toolCalls as call (call.id)}
+                  <div class="tool-card">
+                    <div><strong>{call.name}</strong></div>
+                    {#if call.arguments}
+                      <pre class="mono" style="white-space:pre-wrap; margin:0.4rem 0 0;">{call.arguments}</pre>
+                    {/if}
+                  </div>
+                {/each}
+              </details>
             </div>
           </article>
         {/if}
@@ -93,12 +95,16 @@ const sessionTitle = () => {
         {#if turn.toolResults.length > 0}
           <article class="chat-row">
             <div class="chat-bubble">
-              <strong>{t("session.toolResult", $locale)}</strong>
-              {#each turn.toolResults as result (result.id)}
-                <div class="tool-card">
-                  <pre class="mono" style="white-space:pre-wrap; margin:0;">{result.output ?? "null"}</pre>
-                </div>
-              {/each}
+              <details class="tool-group">
+                <summary class="tool-summary">
+                  {t("session.toolResult", $locale)} ({turn.toolResults.length})
+                </summary>
+                {#each turn.toolResults as result (result.id)}
+                  <div class="tool-card">
+                    <pre class="mono" style="white-space:pre-wrap; margin:0;">{result.output ?? "null"}</pre>
+                  </div>
+                {/each}
+              </details>
             </div>
           </article>
         {/if}
