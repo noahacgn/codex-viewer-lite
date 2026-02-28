@@ -1,9 +1,14 @@
 <script lang="ts">
+import { onDestroy } from "svelte";
 import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
 import { locale, t } from "$lib/i18n/store";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
+type MessageCopyState = "idle" | "copied";
+
+let copyStates = $state<Record<string, MessageCopyState>>({});
+const copyResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const formatDate = (iso: string | null) => {
   if (!iso) {
@@ -19,6 +24,41 @@ const sessionTitle = () => {
   }
   return firstUser.text.length > 120 ? `${firstUser.text.slice(0, 120)}...` : firstUser.text;
 };
+
+const clearCopyTimer = (messageId: string) => {
+  const existingTimer = copyResetTimers.get(messageId);
+  if (!existingTimer) {
+    return;
+  }
+  clearTimeout(existingTimer);
+  copyResetTimers.delete(messageId);
+};
+
+const copyMessage = async (messageId: string, text: string) => {
+  clearCopyTimer(messageId);
+  try {
+    await navigator.clipboard.writeText(text);
+    copyStates[messageId] = "copied";
+    const timer = setTimeout(() => {
+      copyStates[messageId] = "idle";
+      copyResetTimers.delete(messageId);
+    }, 2000);
+    copyResetTimers.set(messageId, timer);
+  } catch (error) {
+    console.error("Failed to copy message text", { messageId, error });
+  }
+};
+
+const copyLabel = (messageId: string) => {
+  return copyStates[messageId] === "copied" ? t("session.copied", $locale) : t("session.copy", $locale);
+};
+
+onDestroy(() => {
+  for (const timer of copyResetTimers.values()) {
+    clearTimeout(timer);
+  }
+  copyResetTimers.clear();
+});
 </script>
 
 <section class="card" style="padding:1rem; margin-bottom:0.9rem;">
@@ -57,10 +97,20 @@ const sessionTitle = () => {
     <div class="chat-list">
       {#each data.session.turns as turn (turn.id)}
         {#if turn.userMessage}
+          {@const userMessage = turn.userMessage}
           <article class="chat-row user">
             <div class="chat-bubble">
-              <MarkdownRenderer content={turn.userMessage.text} />
-              <div class="chat-time">{formatDate(turn.userMessage.timestamp)}</div>
+              <MarkdownRenderer content={userMessage.text} />
+              <div class="chat-meta-row">
+                <div class="chat-time">{formatDate(userMessage.timestamp)}</div>
+                <button
+                  type="button"
+                  class={`chat-copy-button ${copyStates[userMessage.id] === "copied" ? "copied" : ""}`}
+                  onclick={() => void copyMessage(userMessage.id, userMessage.text)}
+                >
+                  {copyLabel(userMessage.id)}
+                </button>
+              </div>
             </div>
           </article>
         {/if}
@@ -69,7 +119,16 @@ const sessionTitle = () => {
           <article class="chat-row">
             <div class="chat-bubble">
               <MarkdownRenderer content={message.text} />
-              <div class="chat-time">{formatDate(message.timestamp)}</div>
+              <div class="chat-meta-row">
+                <div class="chat-time">{formatDate(message.timestamp)}</div>
+                <button
+                  type="button"
+                  class={`chat-copy-button ${copyStates[message.id] === "copied" ? "copied" : ""}`}
+                  onclick={() => void copyMessage(message.id, message.text)}
+                >
+                  {copyLabel(message.id)}
+                </button>
+              </div>
             </div>
           </article>
         {/each}
