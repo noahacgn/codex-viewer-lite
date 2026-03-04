@@ -237,6 +237,15 @@ a.card.list-item:active {
   color: var(--muted);
 }
 
+.session-id-text {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .chat-list {
   display: flex;
   flex-direction: column;

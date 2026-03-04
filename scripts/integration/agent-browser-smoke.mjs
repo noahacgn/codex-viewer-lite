@@ -86,6 +86,15 @@ const TOGGLE_FIRST_TOOL_GROUP_EXPR =
   "(()=>{const s=document.querySelector('.tool-summary');if(!s){return false;}" +
   "s.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));return true;})()";
 
+const PAGE_OVERFLOW_EXPR =
+  "(()=>{const d=document.documentElement;" +
+  "return{scrollWidth:d.scrollWidth,clientWidth:d.clientWidth,overflow:d.scrollWidth-d.clientWidth};})()";
+
+const SESSION_ID_OVERFLOW_EXPR =
+  "(()=>{const nodes=[...document.querySelectorAll('[data-testid=session-id-text]')];" +
+  "const overflowing=nodes.filter((node)=>node.scrollWidth-node.clientWidth>1);" +
+  "return{count:nodes.length,overflowCount:overflowing.length};})()";
+
 const step = (name) => console.log(`\n[STEP] ${name}`);
 const pass = (name) => console.log(`[PASS] ${name}`);
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -547,6 +556,33 @@ const waitForLatestPendingState = async (env, pending) => {
   });
 };
 
+const assertSessionListNoHorizontalOverflow = async (env, label) => {
+  const viewportMetrics = await runEvalJson(`Read page overflow metrics (${label})`, PAGE_OVERFLOW_EXPR, env, {
+    quiet: true,
+  });
+  assert(
+    typeof viewportMetrics?.overflow === "number" && viewportMetrics.overflow <= 1,
+    `Page has horizontal overflow on ${label}: ${JSON.stringify(viewportMetrics)}`,
+  );
+
+  const sessionIdMetrics = await runEvalJson(
+    `Read session-id overflow metrics (${label})`,
+    SESSION_ID_OVERFLOW_EXPR,
+    env,
+    {
+      quiet: true,
+    },
+  );
+  assert(
+    typeof sessionIdMetrics?.count === "number" && sessionIdMetrics.count > 0,
+    `No session id elements found on ${label}: ${JSON.stringify(sessionIdMetrics)}`,
+  );
+  assert(
+    typeof sessionIdMetrics?.overflowCount === "number" && sessionIdMetrics.overflowCount === 0,
+    `Session id text overflows on ${label}: ${JSON.stringify(sessionIdMetrics)}`,
+  );
+};
+
 const assertCopyAndToolRegression = async (env) => {
   const copyState = await runEvalJson("Read copy button state", COPY_BUTTON_STATE_EXPR, env, {
     quiet: true,
@@ -602,6 +638,7 @@ const runIntegrationFlow = async (env) => {
   await runAgent("Open first project card", ["click", "a.list-item:not([href*='/sessions/'])"], env);
   await waitForUrlRegex(env, "project sessions", /\/projects\/[^/]+$/);
   await waitForSessionMessageCount(env, FIXTURE_BASE_MESSAGE_COUNT);
+  await assertSessionListNoHorizontalOverflow(env, "project sessions initial load");
 
   await runAgent("Open first session detail", ["click", "a.list-item[href*='/sessions/']"], env);
   await waitForUrlRegex(env, "session detail", /\/sessions\/[^/]+$/);
@@ -643,6 +680,7 @@ const runIntegrationFlow = async (env) => {
   await runAgent("Back to project sessions", ["click", "[data-testid='back-session-list']"], env);
   await waitForUrlRegex(env, "project sessions after back", /\/projects\/[^/]+$/);
   await waitForSessionMessageCount(env, secondAppend.expectedMessageCount, 10000);
+  await assertSessionListNoHorizontalOverflow(env, "project sessions after returning from session detail");
 
   const backProjectListButton = await runAgent(
     "Read back-project-list button text",
