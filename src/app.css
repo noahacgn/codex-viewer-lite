@@ -311,6 +311,62 @@ select {
   text-decoration: underline;
 }
 
+.chat-anchor {
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-jump-controls {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.chat-jump-button {
+  border: 1px solid #94a3b8;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 95%);
+  color: var(--text);
+  min-width: 8.5rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: 0 8px 26px rgb(15 23 42 / 16%);
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.chat-jump-button:hover {
+  transform: translateY(-1px);
+  border-color: #475569;
+  background: #f8fafc;
+}
+
+.chat-jump-button:focus-visible {
+  outline: 2px solid #0b76d1;
+  outline-offset: 2px;
+}
+
+.chat-jump-button.pending-latest {
+  border-color: #0ea45f;
+  background: linear-gradient(180deg, #d9fbe8 0%, #c4f5db 100%);
+  color: #14532d;
+  box-shadow: 0 10px 28px rgb(14 164 95 / 30%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -328,5 +384,16 @@ select {
 
   .chat-bubble {
     max-width: 92%;
+  }
+
+  .chat-jump-controls {
+    right: 0.75rem;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-jump-button {
+    min-width: 7.75rem;
+    font-size: 0.78rem;
+    padding: 0.42rem 0.7rem;
   }
 }

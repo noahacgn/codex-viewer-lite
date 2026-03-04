@@ -37,6 +37,8 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.copied": "已复制",
     "session.toolUse": "工具调用",
     "session.toolResult": "工具结果",
+    "session.jumpTop": "跳到顶部",
+    "session.jumpLatest": "跳到最新",
   },
   "en-US": {
     "app.name": "Codex Viewer Lite",
@@ -72,5 +74,7 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.copied": "Copied",
     "session.toolUse": "Tool call",
     "session.toolResult": "Tool result",
+    "session.jumpTop": "Jump to top",
+    "session.jumpLatest": "Jump to latest",
   },
 };

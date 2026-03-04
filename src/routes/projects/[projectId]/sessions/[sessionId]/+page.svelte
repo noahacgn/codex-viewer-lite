@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onDestroy } from "svelte";
+import { onDestroy, onMount, tick } from "svelte";
 import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
 import { locale, t } from "$lib/i18n/store";
 import type { PageData } from "./$types";
@@ -9,6 +9,14 @@ type MessageCopyState = "idle" | "copied";
 
 let copyStates = $state<Record<string, MessageCopyState>>({});
 const copyResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const NEAR_BOTTOM_THRESHOLD_PX = 160;
+
+let followLatest = $state(true);
+let hasPendingLatest = $state(false);
+let lastSessionRevision = $state("");
+let chatStartAnchor = $state<HTMLDivElement | null>(null);
+let chatEndAnchor = $state<HTMLDivElement | null>(null);
+let isMounted = false;
 
 const formatDate = (iso: string | null) => {
   if (!iso) {
@@ -53,6 +61,125 @@ const copyLabel = (messageId: string) => {
   return copyStates[messageId] === "copied" ? t("session.copied", $locale) : t("session.copy", $locale);
 };
 
+const getSessionRevision = () => {
+  return `${data.session.meta.lastModifiedAt ?? "null"}:${data.session.meta.messageCount}`;
+};
+
+const isReducedMotion = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
+
+const resolveScrollBehavior = (requested: ScrollBehavior): ScrollBehavior => {
+  return requested === "smooth" && isReducedMotion() ? "auto" : requested;
+};
+
+const scrollToAnchor = (anchor: HTMLDivElement | null, behavior: ScrollBehavior, block: ScrollLogicalPosition) => {
+  if (!anchor) {
+    return;
+  }
+
+  anchor.scrollIntoView({
+    behavior: resolveScrollBehavior(behavior),
+    block,
+  });
+};
+
+const scrollToLatest = (behavior: ScrollBehavior) => {
+  scrollToAnchor(chatEndAnchor, behavior, "end");
+};
+
+const scrollToChatTop = (behavior: ScrollBehavior) => {
+  scrollToAnchor(chatStartAnchor, behavior, "start");
+};
+
+const getBottomGap = () => {
+  if (typeof window === "undefined") {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const doc = document.documentElement;
+  return Math.max(0, doc.scrollHeight - (window.scrollY + window.innerHeight));
+};
+
+const isNearBottom = () => {
+  return getBottomGap() <= NEAR_BOTTOM_THRESHOLD_PX;
+};
+
+const handleWindowScroll = () => {
+  const nearBottom = isNearBottom();
+  followLatest = nearBottom;
+  if (nearBottom && hasPendingLatest) {
+    hasPendingLatest = false;
+  }
+};
+
+const syncScrollOnRevisionChange = async () => {
+  await tick();
+  if (followLatest) {
+    scrollToLatest("auto");
+    hasPendingLatest = false;
+    return;
+  }
+  hasPendingLatest = true;
+};
+
+const jumpToTop = () => {
+  followLatest = false;
+  scrollToChatTop("smooth");
+};
+
+const jumpToLatest = () => {
+  scrollToLatest("smooth");
+  followLatest = true;
+  hasPendingLatest = false;
+};
+
+const waitForNextFrame = async () => {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+};
+
+onMount(() => {
+  lastSessionRevision = getSessionRevision();
+
+  const initializeScroll = async () => {
+    await tick();
+    scrollToLatest("auto");
+    await waitForNextFrame();
+    await waitForNextFrame();
+    scrollToLatest("auto");
+    followLatest = isNearBottom();
+    hasPendingLatest = false;
+    isMounted = true;
+  };
+
+  window.addEventListener("scroll", handleWindowScroll, { passive: true });
+  void initializeScroll();
+
+  return () => {
+    window.removeEventListener("scroll", handleWindowScroll);
+  };
+});
+
+$effect(() => {
+  const revision = getSessionRevision();
+  if (!isMounted) {
+    lastSessionRevision = revision;
+    return;
+  }
+
+  if (revision === lastSessionRevision) {
+    return;
+  }
+
+  lastSessionRevision = revision;
+  void syncScrollOnRevisionChange();
+});
+
 onDestroy(() => {
   for (const timer of copyResetTimers.values()) {
     clearTimeout(timer);
@@ -88,7 +215,8 @@ onDestroy(() => {
   </section>
 {/if}
 
-<section class="card" style="padding:1rem;">
+<section class="card session-chat-card" style="padding:1rem;">
+  <div class="chat-anchor" bind:this={chatStartAnchor} data-testid="chat-start-anchor" aria-hidden="true"></div>
   {#if data.session.turns.length === 0}
     <div class="card" style="padding:1rem; background:var(--surface-weak);">
       {t("session.noMessages", $locale)}
@@ -170,4 +298,26 @@ onDestroy(() => {
       {/each}
     </div>
   {/if}
+  <div class="chat-anchor" bind:this={chatEndAnchor} data-testid="chat-end-anchor" aria-hidden="true"></div>
 </section>
+
+<div class="chat-jump-controls">
+  <button
+    type="button"
+    class="chat-jump-button"
+    data-testid="jump-top"
+    aria-label={t("session.jumpTop", $locale)}
+    onclick={jumpToTop}
+  >
+    {t("session.jumpTop", $locale)}
+  </button>
+  <button
+    type="button"
+    class={`chat-jump-button ${hasPendingLatest ? "pending-latest" : ""}`}
+    data-testid="jump-latest"
+    aria-label={t("session.jumpLatest", $locale)}
+    onclick={jumpToLatest}
+  >
+    {t("session.jumpLatest", $locale)}
+  </button>
+</div>
