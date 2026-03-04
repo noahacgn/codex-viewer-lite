@@ -8,7 +8,7 @@ Read-only Codex session viewer built with SvelteKit 2 + Hono 4.
 - **Chat timeline** with Markdown rendering (marked, GFM)
 - **Live refresh via SSE** — file watcher emits `project_changed` / `session_changed` events; client debounces at 180 ms then calls `invalidateAll()`
 - **i18n** — 简体中文 + English with auto-detect and persisted preference
-- **WeChat-inspired UI** — pure CSS design system, no framework
+- **Modern UI** — token-based CSS design system with depth, micro-interactions, and glassmorphism accents
 - **Security** — HTML sanitization, path traversal protection, base64-URL encoded IDs
 
 ## Scope Boundary
@@ -32,7 +32,7 @@ This project intentionally excludes write/agent-control functions:
 | Markdown | marked 17 |
 | Lint / Format | Biome |
 | Test | Vitest |
-| Styling | Pure CSS design system (no Tailwind) |
+| Styling | Token-based CSS design system (no Tailwind) |
 
 ## Quick Start
 
