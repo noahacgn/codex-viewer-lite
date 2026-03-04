@@ -510,12 +510,12 @@ a.card.list-item:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
+  :root *,
+  :root *::before,
+  :root *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
   }
 }
 

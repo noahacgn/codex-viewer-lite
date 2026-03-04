@@ -20,8 +20,13 @@ const sessionTitle = (message: string | null, path: string) => {
 </script>
 
 <section class="card" style="padding:1rem; margin-bottom:0.9rem;">
-  <h1 style="margin:0;">{t("project.title", $locale)}</h1>
-  <p style="margin:0.35rem 0 0; color:var(--muted);">{t("project.subtitle", $locale)}</p>
+  <div class="toolbar" style="justify-content:space-between; align-items:center;">
+    <div style="display:flex; flex-direction:column; gap:0.3rem;">
+      <h1 style="margin:0;">{t("project.title", $locale)}</h1>
+      <p style="margin:0; color:var(--muted);">{t("project.subtitle", $locale)}</p>
+    </div>
+    <a class="button" data-testid="back-project-list" href="/projects">{t("common.backProjectList", $locale)}</a>
+  </div>
   <div class="meta-row" style="margin-top:0.6rem;">
     <span>{t("project.path", $locale)}:</span>
     <span class="mono">{data.project.meta.workspacePath}</span>

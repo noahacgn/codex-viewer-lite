@@ -634,11 +634,25 @@ const runIntegrationFlow = async (env) => {
   await waitForBottomGapAtMost(env, BOTTOM_ALIGNMENT_TOLERANCE_PX, "after append near bottom auto-follow");
   await waitForLatestPendingState(env, false);
 
-  const backButton = await runAgent("Read back button text", ["get", "text", "a.button"], env);
-  assertMatch(backButton.stdout, /Back to projects/, "Back button text is unexpected");
-  await runAgent("Back to project sessions", ["click", "a.button"], env);
+  const backSessionListButton = await runAgent(
+    "Read back-session-list button text",
+    ["get", "text", "[data-testid='back-session-list']"],
+    env,
+  );
+  assertMatch(backSessionListButton.stdout, /Back to session list/, "Back-session-list text is unexpected");
+  await runAgent("Back to project sessions", ["click", "[data-testid='back-session-list']"], env);
   await waitForUrlRegex(env, "project sessions after back", /\/projects\/[^/]+$/);
   await waitForSessionMessageCount(env, secondAppend.expectedMessageCount, 10000);
+
+  const backProjectListButton = await runAgent(
+    "Read back-project-list button text",
+    ["get", "text", "[data-testid='back-project-list']"],
+    env,
+  );
+  assertMatch(backProjectListButton.stdout, /Back to project list/, "Back-project-list text is unexpected");
+  await runAgent("Back to projects", ["click", "[data-testid='back-project-list']"], env);
+  await waitForUrlRegex(env, "projects page after back", /\/projects\/?$/);
+  await waitForBodyText(env, "cvlite-it-workspace", 12000);
 };
 
 const stopProcess = async (name, child) => {

@@ -194,7 +194,9 @@ onDestroy(() => {
       <h1 style="margin:0;">{t("session.title", $locale)}</h1>
       <strong>{sessionTitle()}</strong>
     </div>
-    <a class="button" href={`/projects/${data.projectId}`}>{t("common.backProjects", $locale)}</a>
+    <a class="button" data-testid="back-session-list" href={`/projects/${data.projectId}`}>
+      {t("common.backSessionList", $locale)}
+    </a>
   </div>
   <div class="meta-row" style="margin-top:0.65rem;">
     <span>{t("session.workspace", $locale)}:</span>
