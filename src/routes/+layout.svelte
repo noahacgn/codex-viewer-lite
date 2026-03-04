@@ -6,11 +6,14 @@ import favicon from "$lib/assets/favicon.svg";
 import { startSse } from "$lib/client/sse";
 import LanguageSwitcher from "$lib/components/LanguageSwitcher.svelte";
 import SseStatus from "$lib/components/SseStatus.svelte";
+import ThemeSwitcher from "$lib/components/ThemeSwitcher.svelte";
 import { initializeLocale, locale, t } from "$lib/i18n/store";
+import { initializeTheme } from "$lib/theme/store";
 
 let { children } = $props();
 
 onMount(() => {
+  initializeTheme();
   initializeLocale();
   const stop = startSse(() => {
     void invalidateAll();
@@ -36,6 +39,7 @@ onMount(() => {
       </div>
       <div style="display:flex; align-items:center; gap:0.6rem;">
         <SseStatus />
+        <ThemeSwitcher />
         <LanguageSwitcher />
       </div>
     </div>

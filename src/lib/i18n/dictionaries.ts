@@ -40,6 +40,8 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.toolResult": "工具结果",
     "session.jumpTop": "跳到顶部",
     "session.jumpLatest": "跳到最新",
+    "theme.switchToDark": "切换到夜间模式",
+    "theme.switchToLight": "切换到浅色模式",
   },
   "en-US": {
     "app.name": "Codex Viewer Lite",
@@ -78,5 +80,7 @@ export const dictionaries: Record<Locale, Record<string, string>> = {
     "session.toolResult": "Tool result",
     "session.jumpTop": "Jump to top",
     "session.jumpLatest": "Jump to latest",
+    "theme.switchToDark": "Switch to dark mode",
+    "theme.switchToLight": "Switch to light mode",
   },
 };

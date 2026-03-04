@@ -2,7 +2,28 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<meta name="color-scheme" content="light dark" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(() => {
+				const THEME_KEY = "cv-lite.theme";
+				const root = document.documentElement;
+				const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+				const fallbackTheme = prefersDark ? "dark" : "light";
+
+				const applyTheme = (theme) => {
+					root.dataset.theme = theme;
+					root.style.colorScheme = theme;
+				};
+
+				try {
+					const stored = window.localStorage.getItem(THEME_KEY);
+					applyTheme(stored === "light" || stored === "dark" ? stored : fallbackTheme);
+				} catch {
+					applyTheme(fallbackTheme);
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

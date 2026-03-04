@@ -95,6 +95,11 @@ const SESSION_ID_OVERFLOW_EXPR =
   "const overflowing=nodes.filter((node)=>node.scrollWidth-node.clientWidth>1);" +
   "return{count:nodes.length,overflowCount:overflowing.length};})()";
 
+const THEME_STATE_EXPR =
+  "(()=>{const root=document.documentElement;let stored=null;" +
+  "try{stored=window.localStorage.getItem('cv-lite.theme');}catch{}" +
+  "return{theme:root.dataset.theme??null,colorScheme:root.style.colorScheme||null,stored};})()";
+
 const step = (name) => console.log(`\n[STEP] ${name}`);
 const pass = (name) => console.log(`[PASS] ${name}`);
 const sleep = (ms) => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -511,6 +516,35 @@ const waitForBodyText = async (env, text, timeoutMs = 9000) => {
   await runAgent(`Wait for text: ${text}`, ["wait", "--text", text], env, { timeoutMs });
 };
 
+const readThemeState = async (env, label, quiet = false) => {
+  const state = await runEvalJson(`Read theme state (${label})`, THEME_STATE_EXPR, env, {
+    quiet,
+  });
+  assert(typeof state === "object" && state !== null, `Theme state payload is not an object for ${label}`);
+  return state;
+};
+
+const waitForThemeState = async (env, expectedTheme, timeoutMs = 8000) => {
+  step(`Wait for theme state ${expectedTheme}`);
+  const deadline = Date.now() + timeoutMs;
+  let lastState = null;
+
+  while (Date.now() < deadline) {
+    const state = await readThemeState(env, `${expectedTheme} poll`, true);
+    lastState = state;
+    const matchesTheme = state.theme === expectedTheme;
+    const matchesStored = state.stored === expectedTheme;
+    const matchesColorScheme = state.colorScheme === expectedTheme;
+    if (matchesTheme && matchesStored && matchesColorScheme) {
+      pass(`Wait for theme state ${expectedTheme}`);
+      return state;
+    }
+    await sleep(250);
+  }
+
+  throw new Error(`Theme state ${expectedTheme} not observed. Last state: ${JSON.stringify(lastState)}`);
+};
+
 const readSessionScrollMetrics = async (env, label, quiet = false) => {
   const metrics = await runEvalJson(`Read session scroll metrics (${label})`, SESSION_SCROLL_METRICS_EXPR, env, {
     quiet,
@@ -624,11 +658,27 @@ const runIntegrationFlow = async (env) => {
   await runAgent("Open /projects", ["open", `${BASE_URL}/projects`], env, { timeoutMs: 12000 });
   await waitForUrlRegex(env, "/projects", /\/projects\/?$/);
 
+  const initialThemeState = await readThemeState(env, "projects initial");
+  assert(
+    initialThemeState.theme === "light" || initialThemeState.theme === "dark",
+    `Unexpected initial theme state: ${JSON.stringify(initialThemeState)}`,
+  );
+
+  const toggledTheme = initialThemeState.theme === "dark" ? "light" : "dark";
+  await runAgent("Toggle theme on /projects", ["click", "[data-testid='theme-toggle']"], env);
+  await waitForThemeState(env, toggledTheme);
+
+  await runAgent("Reload /projects after theme toggle", ["open", `${BASE_URL}/projects`], env, {
+    timeoutMs: 12000,
+  });
+  await waitForUrlRegex(env, "/projects after theme reload", /\/projects\/?$/);
+  await waitForThemeState(env, toggledTheme);
+
   await runAgent("Capture interactive refs on /projects", ["snapshot", "-i"], env);
-  await runAgent("Switch language to zh-CN", ["select", "@e1", "zh-CN"], env);
+  await runAgent("Switch language to zh-CN", ["select", "@e2", "zh-CN"], env);
   await runAgent("Wait for Chinese projects heading", ["wait", "--text", "项目列表"], env);
   await runAgent("Refresh refs after zh-CN switch", ["snapshot", "-i"], env);
-  await runAgent("Switch language to en-US", ["select", "@e1", "en-US"], env);
+  await runAgent("Switch language to en-US", ["select", "@e2", "en-US"], env);
   await runAgent("Wait for English projects heading", ["wait", "--text", "Projects"], env);
   await runAgent("Wait for fixture project card", ["wait", "--text", "cvlite-it-workspace"], env);
 
