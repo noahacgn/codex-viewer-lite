@@ -26,11 +26,11 @@ const formatDate = (iso: string | null) => {
 };
 
 const sessionTitle = () => {
-  const firstUser = data.session.turns.find((turn) => turn.userMessage)?.userMessage;
-  if (!firstUser?.text) {
-    return data.session.id;
+  const firstUserMessage = data.session.meta.firstUserMessage;
+  if (!firstUserMessage) {
+    return data.session.jsonlFilePath.split(/[\\/]/).at(-1) ?? data.session.id;
   }
-  return firstUser.text.length > 120 ? `${firstUser.text.slice(0, 120)}...` : firstUser.text;
+  return firstUserMessage.length > 120 ? `${firstUserMessage.slice(0, 120)}...` : firstUserMessage;
 };
 
 const clearCopyTimer = (messageId: string) => {

@@ -29,7 +29,7 @@ const toSessionMeta = async (filePath: string, lastModifiedAt: Date | null): Pro
     messageCount: messages.length,
     lastModifiedAt: toIsoOrNull(lastModifiedAt),
     startedAt: parsed.sessionMeta.timestamp,
-    firstUserMessage: parsed.turns.find((turn) => turn.userMessage)?.userMessage?.text ?? null,
+    firstUserMessage: parsed.firstUserMessage,
   };
 };
 

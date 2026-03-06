@@ -21,6 +21,11 @@ const isolatedHome = resolve(repoRoot, ".tmp", "agent-browser-home");
 const fixtureWorkspace = "D:\\Integration\\cvlite-it-workspace";
 const fixturePrompt = "integration-smoke-prompt";
 const fixtureReply = "integration smoke assistant reply";
+const fixturePermissionsPrelude =
+  "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written.\n</permissions instructions>";
+const fixtureAgentsPrelude = `# AGENTS.md instructions for ${fixtureWorkspace}\n\n<INSTRUCTIONS>\nFollow the repo defaults.\n</INSTRUCTIONS>`;
+const fixtureSubagentPrelude =
+  '<subagent_notification>\n{"agent_id":"it-agent","status":{"errored":"Interrupted"}}\n</subagent_notification>';
 const sessionFilePath = join(isolatedHome, ".codex", "sessions", "2026", "02", "27", "smoke-session.jsonl");
 const historyFilePath = join(isolatedHome, ".codex", "history.jsonl");
 const pnpmBin = "pnpm";
@@ -89,11 +94,6 @@ const TOGGLE_FIRST_TOOL_GROUP_EXPR =
 const PAGE_OVERFLOW_EXPR =
   "(()=>{const d=document.documentElement;" +
   "return{scrollWidth:d.scrollWidth,clientWidth:d.clientWidth,overflow:d.scrollWidth-d.clientWidth};})()";
-
-const SESSION_ID_OVERFLOW_EXPR =
-  "(()=>{const nodes=[...document.querySelectorAll('[data-testid=session-id-text]')];" +
-  "const overflowing=nodes.filter((node)=>node.scrollWidth-node.clientWidth>1);" +
-  "return{count:nodes.length,overflowCount:overflowing.length};})()";
 
 const THEME_STATE_EXPR =
   "(()=>{const root=document.documentElement;let stored=null;" +
@@ -247,6 +247,33 @@ const buildFixtureContent = () => {
         cwd: fixtureWorkspace,
         timestamp: baseTimestamp,
         instructions: "integration smoke fixture",
+      },
+    }),
+    JSON.stringify({
+      type: "response_item",
+      timestamp: nowIso(),
+      payload: {
+        type: "message",
+        role: "developer",
+        content: [{ type: "input_text", text: fixturePermissionsPrelude }],
+      },
+    }),
+    JSON.stringify({
+      type: "response_item",
+      timestamp: nowIso(),
+      payload: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: fixtureAgentsPrelude }],
+      },
+    }),
+    JSON.stringify({
+      type: "response_item",
+      timestamp: nowIso(),
+      payload: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: fixtureSubagentPrelude }],
       },
     }),
   ];
@@ -598,23 +625,6 @@ const assertSessionListNoHorizontalOverflow = async (env, label) => {
     typeof viewportMetrics?.overflow === "number" && viewportMetrics.overflow <= 1,
     `Page has horizontal overflow on ${label}: ${JSON.stringify(viewportMetrics)}`,
   );
-
-  const sessionIdMetrics = await runEvalJson(
-    `Read session-id overflow metrics (${label})`,
-    SESSION_ID_OVERFLOW_EXPR,
-    env,
-    {
-      quiet: true,
-    },
-  );
-  assert(
-    typeof sessionIdMetrics?.count === "number" && sessionIdMetrics.count > 0,
-    `No session id elements found on ${label}: ${JSON.stringify(sessionIdMetrics)}`,
-  );
-  assert(
-    typeof sessionIdMetrics?.overflowCount === "number" && sessionIdMetrics.overflowCount === 0,
-    `Session id text overflows on ${label}: ${JSON.stringify(sessionIdMetrics)}`,
-  );
 };
 
 const assertCopyAndToolRegression = async (env) => {
@@ -690,9 +700,39 @@ const runIntegrationFlow = async (env) => {
   await waitForSessionMessageCount(env, FIXTURE_BASE_MESSAGE_COUNT);
   await assertSessionListNoHorizontalOverflow(env, "project sessions initial load");
 
+  const sessionListTitle = await runAgent("Read first session title", ["get", "text", "a.list-item strong"], env);
+  assertMatch(sessionListTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session list title is unexpected");
+
+  const projectSessionsSnapshot = await runAgent("Capture project sessions snapshot", ["snapshot"], env);
+  assert(
+    !projectSessionsSnapshot.stdout.includes("it-session-uuid"),
+    `Session list should not show session ids: ${projectSessionsSnapshot.stdout.trim()}`,
+  );
+  assert(
+    !projectSessionsSnapshot.stdout.includes("permissions instructions"),
+    `Session list should not show permissions prelude: ${projectSessionsSnapshot.stdout.trim()}`,
+  );
+  assert(
+    !projectSessionsSnapshot.stdout.includes("subagent_notification"),
+    `Session list should not show subagent prelude: ${projectSessionsSnapshot.stdout.trim()}`,
+  );
+
   await runAgent("Open first session detail", ["click", "a.list-item[href*='/sessions/']"], env);
   await waitForUrlRegex(env, "session detail", /\/sessions\/[^/]+$/);
   await waitForBodyText(env, fixturePrompt, 12000);
+
+  const sessionHeaderTitle = await runAgent("Read session detail title", ["get", "text", ".toolbar strong"], env);
+  assertMatch(sessionHeaderTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session detail title is unexpected");
+
+  const sessionDetailSnapshot = await runAgent("Capture session detail snapshot", ["snapshot"], env);
+  assert(
+    !sessionDetailSnapshot.stdout.includes("permissions instructions"),
+    `Session detail should hide permissions prelude: ${sessionDetailSnapshot.stdout.trim()}`,
+  );
+  assert(
+    !sessionDetailSnapshot.stdout.includes("subagent_notification"),
+    `Session detail should hide subagent prelude: ${sessionDetailSnapshot.stdout.trim()}`,
+  );
 
   await assertCopyAndToolRegression(env);
 

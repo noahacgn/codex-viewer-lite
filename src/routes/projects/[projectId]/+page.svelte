@@ -46,9 +46,6 @@ const sessionTitle = (message: string | null, path: string) => {
             <span>{t("project.startedAt", $locale)}: {formatDate(session.meta.startedAt)}</span>
             <span>{t("project.updatedAt", $locale)}: {formatDate(session.meta.lastModifiedAt)}</span>
           </div>
-          <div class="meta-row">
-            <span class="mono session-id-text" data-testid="session-id-text" title={session.id}>{session.id}</span>
-          </div>
         </a>
       {/each}
     </div>

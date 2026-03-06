@@ -12,6 +12,20 @@ type CodexLogLine = {
   payload?: unknown;
 };
 
+type ResponseMessageRole = "assistant" | "user" | "developer" | "other";
+
+type ParsedResponseMessage = {
+  role: ResponseMessageRole;
+  text: string;
+  isTitleContext: boolean;
+  isTimelineHidden: boolean;
+};
+
+type TextFragment = {
+  startMarker: string;
+  endMarker: string;
+};
+
 const createEntryId = (() => {
   let counter = 0;
   return (prefix: string) => {
@@ -19,6 +33,25 @@ const createEntryId = (() => {
     return `${prefix}-${counter}`;
   };
 })();
+
+const PERMISSIONS_FRAGMENT: TextFragment = {
+  startMarker: "<permissions instructions>",
+  endMarker: "</permissions instructions>",
+};
+const SUBAGENT_NOTIFICATION_FRAGMENT: TextFragment = {
+  startMarker: "<subagent_notification>",
+  endMarker: "</subagent_notification>",
+};
+const TITLE_CONTEXT_FRAGMENTS: TextFragment[] = [
+  PERMISSIONS_FRAGMENT,
+  { startMarker: "# AGENTS.md instructions for ", endMarker: "</INSTRUCTIONS>" },
+  { startMarker: "<environment_context>", endMarker: "</environment_context>" },
+  { startMarker: "<skill>", endMarker: "</skill>" },
+  { startMarker: "<user_shell_command>", endMarker: "</user_shell_command>" },
+  { startMarker: "<turn_aborted>", endMarker: "</turn_aborted>" },
+  SUBAGENT_NOTIFICATION_FRAGMENT,
+];
+const HIDDEN_TIMELINE_FRAGMENTS: TextFragment[] = [PERMISSIONS_FRAGMENT, SUBAGENT_NOTIFICATION_FRAGMENT];
 
 const sanitizeInstructionTags = (text: string) => {
   return text
@@ -29,18 +62,18 @@ const sanitizeInstructionTags = (text: string) => {
     .trim();
 };
 
-const extractTextFromUnknown = (value: unknown): string => {
+const extractTextItems = (value: unknown): string[] => {
   if (typeof value === "string") {
-    return sanitizeInstructionTags(value);
+    return [value];
   }
   if (!Array.isArray(value)) {
-    return "";
+    return [];
   }
 
   const texts: string[] = [];
   for (const item of value) {
     if (typeof item === "string") {
-      texts.push(sanitizeInstructionTags(item));
+      texts.push(item);
       continue;
     }
     if (!item || typeof item !== "object") {
@@ -48,11 +81,40 @@ const extractTextFromUnknown = (value: unknown): string => {
     }
     const itemText = (item as { text?: unknown }).text;
     if (typeof itemText === "string") {
-      texts.push(sanitizeInstructionTags(itemText));
+      texts.push(itemText);
     }
   }
 
+  return texts;
+};
+
+const extractTextFromUnknown = (value: unknown): string => {
+  const texts = extractTextItems(value)
+    .map((text) => sanitizeInstructionTags(text))
+    .filter(Boolean);
   return texts.join("\n\n").trim();
+};
+
+const matchesFragment = (text: string, fragment: TextFragment) => {
+  const trimmedStart = text.trimStart();
+  const startsWithMarker =
+    trimmedStart
+      .slice(0, fragment.startMarker.length)
+      .localeCompare(fragment.startMarker, undefined, { sensitivity: "accent" }) === 0;
+  if (!startsWithMarker) {
+    return false;
+  }
+
+  const trimmedEnd = text.trimEnd();
+  return (
+    trimmedEnd
+      .slice(-fragment.endMarker.length)
+      .localeCompare(fragment.endMarker, undefined, { sensitivity: "accent" }) === 0
+  );
+};
+
+const hasMatchingFragment = (value: unknown, fragments: TextFragment[]) => {
+  return extractTextItems(value).some((text) => fragments.some((fragment) => matchesFragment(text, fragment)));
 };
 
 const createTurn = (index: number): CodexSessionTurn => {
@@ -78,19 +140,27 @@ const parseEventMessageText = (payload: unknown): string | null => {
   return typeof message === "string" ? sanitizeInstructionTags(message) : null;
 };
 
-const parseMessagePayload = (payload: unknown): { role: "user" | "assistant"; text: string } | null => {
+const parseResponseMessageRole = (value: unknown): ResponseMessageRole => {
+  if (value === "assistant" || value === "user" || value === "developer") {
+    return value;
+  }
+  return "other";
+};
+
+const parseMessagePayload = (payload: unknown): ParsedResponseMessage | null => {
   if (!payload || typeof payload !== "object") {
     return null;
   }
   if ((payload as { type?: unknown }).type !== "message") {
     return null;
   }
-  const role = (payload as { role?: unknown }).role === "assistant" ? "assistant" : "user";
-  const text = extractTextFromUnknown((payload as { content?: unknown }).content).trim();
-  if (!text) {
-    return null;
-  }
-  return { role, text };
+  const content = (payload as { content?: unknown }).content;
+  return {
+    role: parseResponseMessageRole((payload as { role?: unknown }).role),
+    text: extractTextFromUnknown(content).trim(),
+    isTitleContext: hasMatchingFragment(content, TITLE_CONTEXT_FRAGMENTS),
+    isTimelineHidden: hasMatchingFragment(content, HIDDEN_TIMELINE_FRAGMENTS),
+  };
 };
 
 const addMessageToTurn = (turns: CodexSessionTurn[], role: "user" | "assistant", message: CodexMessage) => {
@@ -132,10 +202,80 @@ const ensureTurn = (turns: CodexSessionTurn[]) => {
   return fallback;
 };
 
+const addVisibleMessage = (
+  turns: CodexSessionTurn[],
+  lastMessageByRole: Map<"user" | "assistant", string>,
+  role: "user" | "assistant",
+  text: string,
+  timestamp: string | null,
+  source: CodexMessage["source"],
+) => {
+  if (lastMessageByRole.get(role) === text) {
+    return;
+  }
+
+  const message: CodexMessage = {
+    id: createEntryId(role),
+    text,
+    timestamp,
+    source,
+  };
+  addMessageToTurn(turns, role, message);
+  lastMessageByRole.set(role, text);
+};
+
+const getTitleCandidate = (message: ParsedResponseMessage) => {
+  if (message.role !== "user" || message.isTitleContext || !message.text) {
+    return null;
+  }
+  return message.text;
+};
+
+const extractFirstUserMessageFromHistory = (history: unknown) => {
+  if (!Array.isArray(history)) {
+    return null;
+  }
+
+  for (const item of history) {
+    const message = parseMessagePayload(item);
+    if (!message) {
+      continue;
+    }
+    const titleCandidate = getTitleCandidate(message);
+    if (titleCandidate) {
+      return titleCandidate;
+    }
+  }
+
+  return null;
+};
+
+const applySessionMetaPayload = (
+  sessionMeta: CodexSessionMeta,
+  payload: {
+    id?: unknown;
+    cwd?: unknown;
+    instructions?: unknown;
+    originator?: unknown;
+    cli_version?: unknown;
+    timestamp?: unknown;
+  },
+  timestamp: string | null,
+) => {
+  sessionMeta.sessionUuid = typeof payload.id === "string" ? payload.id : sessionMeta.sessionUuid;
+  sessionMeta.cwd = typeof payload.cwd === "string" ? payload.cwd : sessionMeta.cwd;
+  sessionMeta.instructions = typeof payload.instructions === "string" ? payload.instructions : sessionMeta.instructions;
+  sessionMeta.originator = typeof payload.originator === "string" ? payload.originator : sessionMeta.originator;
+  sessionMeta.cliVersion = typeof payload.cli_version === "string" ? payload.cli_version : sessionMeta.cliVersion;
+  sessionMeta.timestamp =
+    typeof payload.timestamp === "string" ? payload.timestamp : (sessionMeta.timestamp ?? timestamp);
+};
+
 export const parseCodexSession = (content: string) => {
   const turns: CodexSessionTurn[] = [];
   const callIdToTurn = new Map<string, CodexSessionTurn>();
   const lastMessageByRole = new Map<"user" | "assistant", string>();
+  let firstUserMessage: string | null = null;
   const sessionMeta: CodexSessionMeta = {
     sessionUuid: null,
     cwd: null,
@@ -161,39 +301,46 @@ export const parseCodexSession = (content: string) => {
     const timestamp = typeof parsed.timestamp === "string" ? parsed.timestamp : null;
 
     if (parsed.type === "session_meta" && parsed.payload && typeof parsed.payload === "object") {
-      const payload = parsed.payload as {
-        id?: unknown;
-        cwd?: unknown;
-        instructions?: unknown;
-        originator?: unknown;
-        cli_version?: unknown;
-        timestamp?: unknown;
-      };
-      sessionMeta.sessionUuid = typeof payload.id === "string" ? payload.id : sessionMeta.sessionUuid;
-      sessionMeta.cwd = typeof payload.cwd === "string" ? payload.cwd : sessionMeta.cwd;
-      sessionMeta.instructions =
-        typeof payload.instructions === "string" ? payload.instructions : sessionMeta.instructions;
-      sessionMeta.originator = typeof payload.originator === "string" ? payload.originator : sessionMeta.originator;
-      sessionMeta.cliVersion = typeof payload.cli_version === "string" ? payload.cli_version : sessionMeta.cliVersion;
-      sessionMeta.timestamp =
-        typeof payload.timestamp === "string" ? payload.timestamp : (sessionMeta.timestamp ?? timestamp);
+      applySessionMetaPayload(
+        sessionMeta,
+        parsed.payload as {
+          id?: unknown;
+          cwd?: unknown;
+          instructions?: unknown;
+          originator?: unknown;
+          cli_version?: unknown;
+          timestamp?: unknown;
+        },
+        timestamp,
+      );
+      continue;
+    }
+
+    if (!firstUserMessage && parsed.type === "compacted" && parsed.payload && typeof parsed.payload === "object") {
+      firstUserMessage =
+        extractFirstUserMessageFromHistory((parsed.payload as { replacement_history?: unknown }).replacement_history) ??
+        firstUserMessage;
       continue;
     }
 
     if (parsed.type === "response_item") {
       const messagePayload = parseMessagePayload(parsed.payload);
       if (messagePayload) {
-        if (lastMessageByRole.get(messagePayload.role) === messagePayload.text) {
-          continue;
+        firstUserMessage = firstUserMessage ?? getTitleCandidate(messagePayload);
+        if (
+          (messagePayload.role === "user" || messagePayload.role === "assistant") &&
+          messagePayload.text &&
+          !messagePayload.isTimelineHidden
+        ) {
+          addVisibleMessage(
+            turns,
+            lastMessageByRole,
+            messagePayload.role,
+            messagePayload.text,
+            timestamp,
+            "response_item",
+          );
         }
-        const message: CodexMessage = {
-          id: createEntryId(messagePayload.role),
-          text: messagePayload.text,
-          timestamp,
-          source: "response_item",
-        };
-        addMessageToTurn(turns, messagePayload.role, message);
-        lastMessageByRole.set(messagePayload.role, messagePayload.text);
         continue;
       }
 
@@ -254,22 +401,15 @@ export const parseCodexSession = (content: string) => {
 
       const role = payload.type === "agent_message" ? "assistant" : "user";
       const text = parseEventMessageText(payload)?.trim();
-      if (!text || lastMessageByRole.get(role) === text) {
+      if (!text || hasMatchingFragment([text], HIDDEN_TIMELINE_FRAGMENTS)) {
         continue;
       }
-
-      const message: CodexMessage = {
-        id: createEntryId(role),
-        text,
-        timestamp,
-        source: "event_msg",
-      };
-      addMessageToTurn(turns, role, message);
-      lastMessageByRole.set(role, text);
+      addVisibleMessage(turns, lastMessageByRole, role, text, timestamp, "event_msg");
     }
   }
 
   return {
+    firstUserMessage,
     turns,
     sessionMeta,
   };
