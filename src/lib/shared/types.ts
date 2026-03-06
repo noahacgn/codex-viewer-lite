@@ -1,8 +1,12 @@
 export type CodexMessage = {
   id: string;
+  kind: "user" | "assistant" | "subagent_prompt" | "subagent_response";
   text: string;
   timestamp: string | null;
   source: "response_item" | "event_msg";
+  agentId: string | null;
+  agentNickname: string | null;
+  status: "completed" | "errored" | "updated" | null;
 };
 
 export type CodexToolCall = {
@@ -30,8 +34,7 @@ export type CodexReasoning = {
 
 export type CodexSessionTurn = {
   id: string;
-  userMessage: CodexMessage | null;
-  assistantMessages: CodexMessage[];
+  messages: CodexMessage[];
   reasonings: CodexReasoning[];
   toolCalls: CodexToolCall[];
   toolResults: CodexToolResult[];

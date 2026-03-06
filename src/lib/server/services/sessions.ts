@@ -17,13 +17,7 @@ const toIsoOrNull = (value: Date | null) => (value ? value.toISOString() : null)
 const toSessionMeta = async (filePath: string, lastModifiedAt: Date | null): Promise<SessionMeta> => {
   const fileContent = await readFile(filePath, "utf-8");
   const parsed = parseCodexSession(fileContent);
-  const messages = parsed.turns.flatMap((turn) => {
-    const messageList = [...turn.assistantMessages];
-    if (turn.userMessage) {
-      messageList.push(turn.userMessage);
-    }
-    return messageList;
-  });
+  const messages = parsed.turns.flatMap((turn) => turn.messages);
 
   return {
     messageCount: messages.length,

@@ -14,16 +14,33 @@ type CodexLogLine = {
 
 type ResponseMessageRole = "assistant" | "user" | "developer" | "other";
 
+type TextFragment = {
+  startMarker: string;
+  endMarker: string;
+};
+
+type ParsedSubagentNotification = {
+  agentId: string | null;
+  status: CodexMessage["status"];
+  text: string | null;
+};
+
 type ParsedResponseMessage = {
   role: ResponseMessageRole;
   text: string;
   isTitleContext: boolean;
   isTimelineHidden: boolean;
+  subagentNotification: ParsedSubagentNotification | null;
 };
 
-type TextFragment = {
-  startMarker: string;
-  endMarker: string;
+type ParseState = {
+  turns: CodexSessionTurn[];
+  callIdToTurn: Map<string, CodexSessionTurn>;
+  callIdToSubagentPrompt: Map<string, CodexMessage>;
+  agentNicknameById: Map<string, string>;
+  lastConversationMessageByKind: Map<"user" | "assistant", string>;
+  firstUserMessage: string | null;
+  sessionMeta: CodexSessionMeta;
 };
 
 const createEntryId = (() => {
@@ -51,7 +68,40 @@ const TITLE_CONTEXT_FRAGMENTS: TextFragment[] = [
   { startMarker: "<turn_aborted>", endMarker: "</turn_aborted>" },
   SUBAGENT_NOTIFICATION_FRAGMENT,
 ];
-const HIDDEN_TIMELINE_FRAGMENTS: TextFragment[] = [PERMISSIONS_FRAGMENT, SUBAGENT_NOTIFICATION_FRAGMENT];
+const HIDDEN_TIMELINE_FRAGMENTS: TextFragment[] = [PERMISSIONS_FRAGMENT];
+
+const createTurn = (index: number): CodexSessionTurn => {
+  return {
+    id: `turn-${index}`,
+    messages: [],
+    reasonings: [],
+    toolCalls: [],
+    toolResults: [],
+  };
+};
+
+const createEmptySessionMeta = (): CodexSessionMeta => {
+  return {
+    sessionUuid: null,
+    cwd: null,
+    instructions: null,
+    originator: null,
+    cliVersion: null,
+    timestamp: null,
+  };
+};
+
+const createParseState = (): ParseState => {
+  return {
+    turns: [],
+    callIdToTurn: new Map<string, CodexSessionTurn>(),
+    callIdToSubagentPrompt: new Map<string, CodexMessage>(),
+    agentNicknameById: new Map<string, string>(),
+    lastConversationMessageByKind: new Map<"user" | "assistant", string>(),
+    firstUserMessage: null,
+    sessionMeta: createEmptySessionMeta(),
+  };
+};
 
 const sanitizeInstructionTags = (text: string) => {
   return text
@@ -117,15 +167,83 @@ const hasMatchingFragment = (value: unknown, fragments: TextFragment[]) => {
   return extractTextItems(value).some((text) => fragments.some((fragment) => matchesFragment(text, fragment)));
 };
 
-const createTurn = (index: number): CodexSessionTurn => {
-  return {
-    id: `turn-${index}`,
-    userMessage: null,
-    assistantMessages: [],
-    reasonings: [],
-    toolCalls: [],
-    toolResults: [],
-  };
+const extractFragmentBody = (text: string, fragment: TextFragment) => {
+  if (!matchesFragment(text, fragment)) {
+    return null;
+  }
+
+  const trimmed = text.trim();
+  const startIndex = fragment.startMarker.length;
+  const endIndex = trimmed.length - fragment.endMarker.length;
+  return trimmed.slice(startIndex, endIndex).trim();
+};
+
+const parseObjectValue = (value: unknown) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {}
+
+  return null;
+};
+
+const serializeUnknownValue = (value: unknown) => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return JSON.stringify(value);
+};
+
+const parseSubagentStatus = (status: unknown) => {
+  if (status && typeof status === "object" && !Array.isArray(status)) {
+    const completed = (status as { completed?: unknown }).completed;
+    if (typeof completed === "string" && completed.trim()) {
+      return { status: "completed" as const, text: sanitizeInstructionTags(completed).trim() };
+    }
+
+    const errored = (status as { errored?: unknown }).errored;
+    if (typeof errored === "string" && errored.trim()) {
+      return { status: "errored" as const, text: sanitizeInstructionTags(errored).trim() };
+    }
+  }
+
+  if (typeof status === "string" && status.trim()) {
+    return { status: "updated" as const, text: status.trim() };
+  }
+
+  const serialized = serializeUnknownValue(status);
+  return { status: "updated" as const, text: serialized?.trim() ?? null };
+};
+
+const parseSubagentNotification = (value: unknown): ParsedSubagentNotification | null => {
+  for (const text of extractTextItems(value)) {
+    const wrapped = extractFragmentBody(text, SUBAGENT_NOTIFICATION_FRAGMENT);
+    if (!wrapped) {
+      continue;
+    }
+
+    const payload = parseObjectValue(wrapped);
+    const statusInfo = parseSubagentStatus(payload?.status ?? null);
+    return {
+      agentId: typeof payload?.agent_id === "string" ? payload.agent_id : null,
+      status: statusInfo.status,
+      text: statusInfo.text,
+    };
+  }
+
+  return null;
 };
 
 const parseEventMessageText = (payload: unknown): string | null => {
@@ -154,37 +272,38 @@ const parseMessagePayload = (payload: unknown): ParsedResponseMessage | null => 
   if ((payload as { type?: unknown }).type !== "message") {
     return null;
   }
+
   const content = (payload as { content?: unknown }).content;
   return {
     role: parseResponseMessageRole((payload as { role?: unknown }).role),
     text: extractTextFromUnknown(content).trim(),
     isTitleContext: hasMatchingFragment(content, TITLE_CONTEXT_FRAGMENTS),
     isTimelineHidden: hasMatchingFragment(content, HIDDEN_TIMELINE_FRAGMENTS),
+    subagentNotification: parseSubagentNotification(content),
   };
 };
 
-const addMessageToTurn = (turns: CodexSessionTurn[], role: "user" | "assistant", message: CodexMessage) => {
-  if (turns.length === 0) {
-    turns.push(createTurn(1));
-  }
-
-  const lastTurn = turns[turns.length - 1];
-  if (!lastTurn) {
-    return;
-  }
-
-  if (role === "user") {
-    if (lastTurn.userMessage !== null) {
-      const nextTurn = createTurn(turns.length + 1);
-      nextTurn.userMessage = message;
-      turns.push(nextTurn);
-      return;
-    }
-    lastTurn.userMessage = message;
-    return;
-  }
-
-  lastTurn.assistantMessages.push(message);
+const createMessage = (
+  kind: CodexMessage["kind"],
+  text: string,
+  timestamp: string | null,
+  source: CodexMessage["source"],
+  metadata?: {
+    agentId?: string | null;
+    agentNickname?: string | null;
+    status?: CodexMessage["status"];
+  },
+): CodexMessage => {
+  return {
+    id: createEntryId("message"),
+    kind,
+    text,
+    timestamp,
+    source,
+    agentId: metadata?.agentId ?? null,
+    agentNickname: metadata?.agentNickname ?? null,
+    status: metadata?.status ?? null,
+  };
 };
 
 const ensureTurn = (turns: CodexSessionTurn[]) => {
@@ -193,35 +312,78 @@ const ensureTurn = (turns: CodexSessionTurn[]) => {
     turns.push(created);
     return created;
   }
+
   const lastTurn = turns[turns.length - 1];
   if (lastTurn) {
     return lastTurn;
   }
+
   const fallback = createTurn(1);
   turns.push(fallback);
   return fallback;
 };
 
-const addVisibleMessage = (
-  turns: CodexSessionTurn[],
-  lastMessageByRole: Map<"user" | "assistant", string>,
+const lastTurnHasUserMessage = (turn: CodexSessionTurn) => {
+  return turn.messages.some((message) => message.kind === "user");
+};
+
+const pushTurnMessage = (turns: CodexSessionTurn[], message: CodexMessage) => {
+  const turn = ensureTurn(turns);
+  turn.messages.push(message);
+  return turn;
+};
+
+const pushConversationMessage = (
+  state: ParseState,
   role: "user" | "assistant",
   text: string,
   timestamp: string | null,
   source: CodexMessage["source"],
 ) => {
-  if (lastMessageByRole.get(role) === text) {
+  if (state.lastConversationMessageByKind.get(role) === text) {
     return;
   }
 
-  const message: CodexMessage = {
-    id: createEntryId(role),
-    text,
-    timestamp,
-    source,
-  };
-  addMessageToTurn(turns, role, message);
-  lastMessageByRole.set(role, text);
+  const message = createMessage(role, text, timestamp, source);
+  if (role === "user") {
+    const turn = ensureTurn(state.turns);
+    if (lastTurnHasUserMessage(turn)) {
+      const nextTurn = createTurn(state.turns.length + 1);
+      nextTurn.messages.push(message);
+      state.turns.push(nextTurn);
+    } else {
+      turn.messages.push(message);
+    }
+  } else {
+    pushTurnMessage(state.turns, message);
+  }
+
+  state.lastConversationMessageByKind.set(role, text);
+};
+
+const pushSubagentPrompt = (state: ParseState, text: string, timestamp: string | null, callId: string | null) => {
+  const message = createMessage("subagent_prompt", text, timestamp, "response_item");
+  pushTurnMessage(state.turns, message);
+  if (callId) {
+    state.callIdToSubagentPrompt.set(callId, message);
+  }
+};
+
+const pushSubagentResponse = (
+  state: ParseState,
+  notification: ParsedSubagentNotification,
+  timestamp: string | null,
+) => {
+  if (!notification.text) {
+    return;
+  }
+
+  const message = createMessage("subagent_response", notification.text, timestamp, "response_item", {
+    agentId: notification.agentId,
+    agentNickname: notification.agentId ? (state.agentNicknameById.get(notification.agentId) ?? null) : null,
+    status: notification.status,
+  });
+  pushTurnMessage(state.turns, message);
 };
 
 const getTitleCandidate = (message: ParsedResponseMessage) => {
@@ -271,20 +433,159 @@ const applySessionMetaPayload = (
     typeof payload.timestamp === "string" ? payload.timestamp : (sessionMeta.timestamp ?? timestamp);
 };
 
-export const parseCodexSession = (content: string) => {
-  const turns: CodexSessionTurn[] = [];
-  const callIdToTurn = new Map<string, CodexSessionTurn>();
-  const lastMessageByRole = new Map<"user" | "assistant", string>();
-  let firstUserMessage: string | null = null;
-  const sessionMeta: CodexSessionMeta = {
-    sessionUuid: null,
-    cwd: null,
-    instructions: null,
-    originator: null,
-    cliVersion: null,
-    timestamp: null,
-  };
+const handleResponseMessage = (state: ParseState, messagePayload: ParsedResponseMessage, timestamp: string | null) => {
+  state.firstUserMessage = state.firstUserMessage ?? getTitleCandidate(messagePayload);
+  if (messagePayload.subagentNotification) {
+    pushSubagentResponse(state, messagePayload.subagentNotification, timestamp);
+    return;
+  }
 
+  if (
+    (messagePayload.role !== "user" && messagePayload.role !== "assistant") ||
+    !messagePayload.text ||
+    messagePayload.isTimelineHidden
+  ) {
+    return;
+  }
+
+  pushConversationMessage(state, messagePayload.role, messagePayload.text, timestamp, "response_item");
+};
+
+const extractSpawnAgentText = (argumentsValue: unknown) => {
+  const payload = parseObjectValue(argumentsValue);
+  if (!payload) {
+    return null;
+  }
+
+  const message = payload.message;
+  if (typeof message === "string" && message.trim()) {
+    return message.trim();
+  }
+
+  const itemsText = extractTextFromUnknown(payload.items).trim();
+  return itemsText || null;
+};
+
+const addGenericToolCall = (
+  state: ParseState,
+  name: string,
+  argumentsValue: unknown,
+  callId: string | null,
+  timestamp: string | null,
+) => {
+  const toolCall: CodexToolCall = {
+    id: createEntryId("tool-call"),
+    name,
+    arguments: serializeUnknownValue(argumentsValue),
+    callId,
+    timestamp,
+  };
+  const turn = ensureTurn(state.turns);
+  turn.toolCalls.push(toolCall);
+  if (callId) {
+    state.callIdToTurn.set(callId, turn);
+  }
+};
+
+const handleFunctionCall = (
+  state: ParseState,
+  payload: { name?: unknown; arguments?: unknown; call_id?: unknown },
+  timestamp: string | null,
+) => {
+  const name = typeof payload.name === "string" ? payload.name : "unknown";
+  const callId = typeof payload.call_id === "string" ? payload.call_id : null;
+  if (name === "spawn_agent") {
+    const promptText = extractSpawnAgentText(payload.arguments);
+    if (promptText) {
+      pushSubagentPrompt(state, promptText, timestamp, callId);
+      return;
+    }
+  }
+
+  addGenericToolCall(state, name, payload.arguments, callId, timestamp);
+};
+
+const enrichSubagentPrompt = (state: ParseState, callId: string | null, outputValue: unknown) => {
+  if (!callId) {
+    return false;
+  }
+
+  const prompt = state.callIdToSubagentPrompt.get(callId);
+  if (!prompt) {
+    return false;
+  }
+
+  const payload = parseObjectValue(outputValue);
+  prompt.agentId = typeof payload?.agent_id === "string" ? payload.agent_id : prompt.agentId;
+  prompt.agentNickname = typeof payload?.nickname === "string" ? payload.nickname : prompt.agentNickname;
+  if (prompt.agentId && prompt.agentNickname) {
+    state.agentNicknameById.set(prompt.agentId, prompt.agentNickname);
+  }
+  return true;
+};
+
+const handleFunctionCallOutput = (
+  state: ParseState,
+  payload: { call_id?: unknown; output?: unknown },
+  timestamp: string | null,
+) => {
+  const callId = typeof payload.call_id === "string" ? payload.call_id : null;
+  if (enrichSubagentPrompt(state, callId, payload.output)) {
+    return;
+  }
+
+  const toolResult: CodexToolResult = {
+    id: createEntryId("tool-result"),
+    callId,
+    output: serializeUnknownValue(payload.output),
+    timestamp,
+  };
+  const mappedTurn = callId ? state.callIdToTurn.get(callId) : null;
+  const turn = mappedTurn ?? ensureTurn(state.turns);
+  turn.toolResults.push(toolResult);
+};
+
+const handleEventMessage = (
+  state: ParseState,
+  payload: { type?: unknown; text?: unknown; message?: unknown },
+  timestamp: string | null,
+) => {
+  if (payload.type !== "agent_message" && payload.type !== "user_message") {
+    return;
+  }
+
+  const text = parseEventMessageText(payload)?.trim();
+  if (!text || hasMatchingFragment([text], HIDDEN_TIMELINE_FRAGMENTS)) {
+    return;
+  }
+  if (matchesFragment(text, SUBAGENT_NOTIFICATION_FRAGMENT)) {
+    return;
+  }
+
+  const role = payload.type === "agent_message" ? "assistant" : "user";
+  pushConversationMessage(state, role, text, timestamp, "event_msg");
+};
+
+const handleResponseItem = (state: ParseState, payload: unknown, timestamp: string | null) => {
+  const messagePayload = parseMessagePayload(payload);
+  if (messagePayload) {
+    handleResponseMessage(state, messagePayload, timestamp);
+    return;
+  }
+
+  const responseType = payload && typeof payload === "object" ? (payload as { type?: unknown }).type : null;
+  if (responseType === "function_call") {
+    handleFunctionCall(state, payload as { name?: unknown; arguments?: unknown; call_id?: unknown }, timestamp);
+    return;
+  }
+
+  if (responseType === "function_call_output") {
+    handleFunctionCallOutput(state, payload as { call_id?: unknown; output?: unknown }, timestamp);
+  }
+};
+
+export const parseCodexSession = (content: string) => {
+  const state = createParseState();
   const lines = content.split("\n").map((line) => line.trim());
   for (const line of lines) {
     if (!line) {
@@ -299,10 +600,9 @@ export const parseCodexSession = (content: string) => {
     }
 
     const timestamp = typeof parsed.timestamp === "string" ? parsed.timestamp : null;
-
     if (parsed.type === "session_meta" && parsed.payload && typeof parsed.payload === "object") {
       applySessionMetaPayload(
-        sessionMeta,
+        state.sessionMeta,
         parsed.payload as {
           id?: unknown;
           cwd?: unknown;
@@ -316,101 +616,31 @@ export const parseCodexSession = (content: string) => {
       continue;
     }
 
-    if (!firstUserMessage && parsed.type === "compacted" && parsed.payload && typeof parsed.payload === "object") {
-      firstUserMessage =
+    if (
+      !state.firstUserMessage &&
+      parsed.type === "compacted" &&
+      parsed.payload &&
+      typeof parsed.payload === "object"
+    ) {
+      state.firstUserMessage =
         extractFirstUserMessageFromHistory((parsed.payload as { replacement_history?: unknown }).replacement_history) ??
-        firstUserMessage;
+        state.firstUserMessage;
       continue;
     }
 
     if (parsed.type === "response_item") {
-      const messagePayload = parseMessagePayload(parsed.payload);
-      if (messagePayload) {
-        firstUserMessage = firstUserMessage ?? getTitleCandidate(messagePayload);
-        if (
-          (messagePayload.role === "user" || messagePayload.role === "assistant") &&
-          messagePayload.text &&
-          !messagePayload.isTimelineHidden
-        ) {
-          addVisibleMessage(
-            turns,
-            lastMessageByRole,
-            messagePayload.role,
-            messagePayload.text,
-            timestamp,
-            "response_item",
-          );
-        }
-        continue;
-      }
-
-      const responseType =
-        parsed.payload && typeof parsed.payload === "object" ? (parsed.payload as { type?: unknown }).type : null;
-
-      if (responseType === "function_call") {
-        const payload = parsed.payload as {
-          name?: unknown;
-          arguments?: unknown;
-          call_id?: unknown;
-        };
-        const toolCall: CodexToolCall = {
-          id: createEntryId("tool-call"),
-          name: typeof payload.name === "string" ? payload.name : "unknown",
-          arguments:
-            typeof payload.arguments === "string"
-              ? payload.arguments
-              : payload.arguments
-                ? JSON.stringify(payload.arguments)
-                : null,
-          callId: typeof payload.call_id === "string" ? payload.call_id : null,
-          timestamp,
-        };
-        const turn = ensureTurn(turns);
-        turn.toolCalls.push(toolCall);
-        if (toolCall.callId) {
-          callIdToTurn.set(toolCall.callId, turn);
-        }
-        continue;
-      }
-
-      if (responseType === "function_call_output") {
-        const payload = parsed.payload as { call_id?: unknown; output?: unknown };
-        const toolResult: CodexToolResult = {
-          id: createEntryId("tool-result"),
-          callId: typeof payload.call_id === "string" ? payload.call_id : null,
-          output:
-            typeof payload.output === "string"
-              ? payload.output
-              : payload.output
-                ? JSON.stringify(payload.output)
-                : null,
-          timestamp,
-        };
-        const mappedTurn = toolResult.callId ? callIdToTurn.get(toolResult.callId) : null;
-        const turn = mappedTurn ?? ensureTurn(turns);
-        turn.toolResults.push(toolResult);
-      }
+      handleResponseItem(state, parsed.payload, timestamp);
       continue;
     }
 
     if (parsed.type === "event_msg" && parsed.payload && typeof parsed.payload === "object") {
-      const payload = parsed.payload as { type?: unknown };
-      if (payload.type !== "agent_message" && payload.type !== "user_message") {
-        continue;
-      }
-
-      const role = payload.type === "agent_message" ? "assistant" : "user";
-      const text = parseEventMessageText(payload)?.trim();
-      if (!text || hasMatchingFragment([text], HIDDEN_TIMELINE_FRAGMENTS)) {
-        continue;
-      }
-      addVisibleMessage(turns, lastMessageByRole, role, text, timestamp, "event_msg");
+      handleEventMessage(state, parsed.payload as { type?: unknown; text?: unknown; message?: unknown }, timestamp);
     }
   }
 
   return {
-    firstUserMessage,
-    turns,
-    sessionMeta,
+    firstUserMessage: state.firstUserMessage,
+    turns: state.turns,
+    sessionMeta: state.sessionMeta,
   };
 };

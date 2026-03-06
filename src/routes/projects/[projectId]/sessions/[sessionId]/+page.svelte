@@ -2,6 +2,7 @@
 import { onDestroy, onMount, tick } from "svelte";
 import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
 import { locale, t } from "$lib/i18n/store";
+import type { CodexMessage } from "$lib/shared/types";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -59,6 +60,51 @@ const copyMessage = async (messageId: string, text: string) => {
 
 const copyLabel = (messageId: string) => {
   return copyStates[messageId] === "copied" ? t("session.copied", $locale) : t("session.copy", $locale);
+};
+
+const isSubagentMessage = (message: CodexMessage) => {
+  return message.kind === "subagent_prompt" || message.kind === "subagent_response";
+};
+
+const messageRowClass = (message: CodexMessage) => {
+  if (message.kind === "user") {
+    return "chat-row user";
+  }
+  if (message.kind === "subagent_prompt") {
+    return "chat-row subagent-prompt";
+  }
+  if (message.kind === "subagent_response") {
+    const errorClass = message.status === "errored" ? " errored" : "";
+    return `chat-row subagent-response${errorClass}`;
+  }
+  return "chat-row";
+};
+
+const messageBubbleClass = () => {
+  return "chat-bubble";
+};
+
+const subagentLabel = (message: CodexMessage) => {
+  return message.kind === "subagent_prompt"
+    ? t("session.subagentPrompt", $locale)
+    : t("session.subagentResponse", $locale);
+};
+
+const subagentStatusLabel = (message: CodexMessage) => {
+  if (message.status === "completed") {
+    return t("session.subagentCompleted", $locale);
+  }
+  if (message.status === "errored") {
+    return t("session.subagentErrored", $locale);
+  }
+  return null;
+};
+
+const subagentAgentName = (message: CodexMessage) => {
+  if (message.agentNickname && message.agentId) {
+    return `${message.agentNickname} · ${message.agentId}`;
+  }
+  return message.agentNickname ?? message.agentId ?? t("session.subagentUnknown", $locale);
 };
 
 const getSessionRevision = () => {
@@ -226,28 +272,30 @@ onDestroy(() => {
   {:else}
     <div class="chat-list">
       {#each data.session.turns as turn (turn.id)}
-        {#if turn.userMessage}
-          {@const userMessage = turn.userMessage}
-          <article class="chat-row user">
-            <div class="chat-bubble">
-              <MarkdownRenderer content={userMessage.text} />
-              <div class="chat-meta-row">
-                <div class="chat-time">{formatDate(userMessage.timestamp)}</div>
-                <button
-                  type="button"
-                  class={`chat-copy-button ${copyStates[userMessage.id] === "copied" ? "copied" : ""}`}
-                  onclick={() => void copyMessage(userMessage.id, userMessage.text)}
-                >
-                  {copyLabel(userMessage.id)}
-                </button>
-              </div>
-            </div>
-          </article>
-        {/if}
-
-        {#each turn.assistantMessages as message (message.id)}
-          <article class="chat-row">
-            <div class="chat-bubble">
+        {#each turn.messages as message (message.id)}
+          <article class={messageRowClass(message)}>
+            <div class={messageBubbleClass()}>
+              {#if isSubagentMessage(message)}
+                <div class="chat-label-row">
+                  <span class="chat-label-chip">{subagentLabel(message)}</span>
+                  <span class="chat-label-chip mono" title={subagentAgentName(message)}>
+                    {subagentAgentName(message)}
+                  </span>
+                  {#if subagentStatusLabel(message)}
+                    <span
+                      class={`chat-label-chip ${
+                        message.status === "completed"
+                          ? "status-completed"
+                          : message.status === "errored"
+                            ? "status-errored"
+                            : ""
+                      }`}
+                    >
+                      {subagentStatusLabel(message)}
+                    </span>
+                  {/if}
+                </div>
+              {/if}
               <MarkdownRenderer content={message.text} />
               <div class="chat-meta-row">
                 <div class="chat-time">{formatDate(message.timestamp)}</div>
