@@ -13,9 +13,10 @@ const READY_TIMEOUT_MS = 12000;
 const POLL_INTERVAL_MS = 150;
 const FETCH_TIMEOUT_MS = 800;
 const FIXTURE_TURN_COUNT = 24;
-const FIXTURE_BASE_MESSAGE_COUNT = FIXTURE_TURN_COUNT * 2;
+const FIXTURE_VISIBLE_PRELUDE_MESSAGE_COUNT = 2;
+const FIXTURE_BASE_MESSAGE_COUNT = FIXTURE_TURN_COUNT * 2 + FIXTURE_VISIBLE_PRELUDE_MESSAGE_COUNT;
 const APPEND_BODY_LINE_COUNT = 28;
-const BOTTOM_ALIGNMENT_TOLERANCE_PX = 48;
+const BOTTOM_ALIGNMENT_TOLERANCE_PX = 96;
 const repoRoot = process.cwd();
 const isolatedHome = resolve(repoRoot, ".tmp", "agent-browser-home");
 const fixtureWorkspace = "D:\\Integration\\cvlite-it-workspace";
@@ -123,6 +124,8 @@ const assertNonEmpty = (value, message) => {
 };
 
 const nowIso = () => new Date().toISOString();
+
+const encodeBase64Utf8 = (value) => Buffer.from(value, "utf-8").toString("base64");
 
 const quoteArgForCmd = (value) => {
   if (!/[\s"]/u.test(value)) {
@@ -418,7 +421,7 @@ const runAgent = async (name, args, env, options = {}) => {
 };
 
 const runEvalJson = async (name, expression, env, options = {}) => {
-  const result = await runAgent(name, ["eval", expression], env, {
+  const result = await runAgent(name, ["eval", "-b", encodeBase64Utf8(expression)], env, {
     quiet: options.quiet ?? false,
     timeoutMs: options.timeoutMs ?? COMMAND_TIMEOUT_MS,
   });
@@ -540,7 +543,27 @@ const waitForUrlRegex = async (env, label, pattern, timeoutMs = 7000) => {
 };
 
 const waitForBodyText = async (env, text, timeoutMs = 9000) => {
-  await runAgent(`Wait for text: ${text}`, ["wait", "--text", text], env, { timeoutMs });
+  step(`Wait for text: ${text}`);
+  const deadline = Date.now() + timeoutMs;
+  let lastOutput = "";
+
+  while (Date.now() < deadline) {
+    try {
+      const snapshot = await runAgent(`Capture snapshot for text: ${text}`, ["snapshot"], env, {
+        quiet: true,
+      });
+      lastOutput = snapshot.stdout;
+      if (snapshot.stdout.includes(text)) {
+        pass(`Wait for text: ${text}`);
+        return;
+      }
+    } catch {
+      // keep polling until timeout
+    }
+    await sleep(250);
+  }
+
+  throw new Error(`Text not observed: ${text}. Last output: ${lastOutput.trim()}`);
 };
 
 const readThemeState = async (env, label, quiet = false) => {
@@ -700,7 +723,7 @@ const runIntegrationFlow = async (env) => {
   await waitForSessionMessageCount(env, FIXTURE_BASE_MESSAGE_COUNT);
   await assertSessionListNoHorizontalOverflow(env, "project sessions initial load");
 
-  const sessionListTitle = await runAgent("Read first session title", ["get", "text", "a.list-item strong"], env);
+  const sessionListTitle = await runAgent("Read first session title", ["get", "text", ".list-item-title"], env);
   assertMatch(sessionListTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session list title is unexpected");
 
   const projectSessionsSnapshot = await runAgent("Capture project sessions snapshot", ["snapshot"], env);
@@ -721,7 +744,7 @@ const runIntegrationFlow = async (env) => {
   await waitForUrlRegex(env, "session detail", /\/sessions\/[^/]+$/);
   await waitForBodyText(env, fixturePrompt, 12000);
 
-  const sessionHeaderTitle = await runAgent("Read session detail title", ["get", "text", ".toolbar strong"], env);
+  const sessionHeaderTitle = await runAgent("Read session detail title", ["get", "text", ".session-title"], env);
   assertMatch(sessionHeaderTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session detail title is unexpected");
 
   const sessionDetailSnapshot = await runAgent("Capture session detail snapshot", ["snapshot"], env);

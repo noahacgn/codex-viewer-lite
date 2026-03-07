@@ -134,7 +134,14 @@ const scrollToAnchor = (anchor: HTMLDivElement | null, behavior: ScrollBehavior,
 };
 
 const scrollToLatest = (behavior: ScrollBehavior) => {
-  scrollToAnchor(chatEndAnchor, behavior, "end");
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.scrollTo({
+    top: document.documentElement.scrollHeight,
+    behavior: resolveScrollBehavior(behavior),
+  });
 };
 
 const scrollToChatTop = (behavior: ScrollBehavior) => {
@@ -234,41 +241,41 @@ onDestroy(() => {
 });
 </script>
 
-<section class="card" style="padding:1rem; margin-bottom:0.9rem;">
-  <div class="toolbar" style="justify-content:space-between; align-items:center;">
-    <div style="display:flex; flex-direction:column; gap:0.3rem;">
-      <h1 style="margin:0;">{t("session.title", $locale)}</h1>
-      <strong>{sessionTitle()}</strong>
+<section class="card section-card">
+  <div class="toolbar toolbar-spread">
+    <div class="section-copy">
+      <h1 class="section-title">{t("session.title", $locale)}</h1>
+      <strong class="session-title">{sessionTitle()}</strong>
     </div>
     <a class="button" data-testid="back-session-list" href={`/projects/${data.projectId}`}>
       {t("common.backSessionList", $locale)}
     </a>
   </div>
-  <div class="meta-row" style="margin-top:0.65rem;">
-    <span>{t("session.workspace", $locale)}:</span>
-    <span class="mono">{data.session.sessionMeta.cwd ?? "—"}</span>
-  </div>
-  <div class="meta-row">
-    <span>{t("session.sessionId", $locale)}:</span>
-    <span class="mono">{data.session.sessionUuid ?? data.session.id}</span>
+  <div class="session-meta-grid">
+    <div class="session-meta-card">
+      <span class="session-meta-label">{t("session.workspace", $locale)}</span>
+      <span class="session-meta-value mono">{data.session.sessionMeta.cwd ?? "—"}</span>
+    </div>
+    <div class="session-meta-card">
+      <span class="session-meta-label">{t("session.sessionId", $locale)}</span>
+      <span class="session-meta-value mono">{data.session.sessionUuid ?? data.session.id}</span>
+    </div>
   </div>
 </section>
 
 {#if data.session.sessionMeta.instructions}
-  <section class="card" style="padding:0.9rem; margin-bottom:0.9rem;">
-    <strong>{t("session.instructions", $locale)}</strong>
-    <pre class="mono" style="white-space:pre-wrap; margin:0.6rem 0 0; font-size:0.85rem;">
+  <section class="card session-instructions-card">
+    <strong class="panel-title">{t("session.instructions", $locale)}</strong>
+    <pre class="session-instructions-block mono">
 {data.session.sessionMeta.instructions}
     </pre>
   </section>
 {/if}
 
-<section class="card session-chat-card" style="padding:1rem;">
+<section class="card session-chat-card">
   <div class="chat-anchor" bind:this={chatStartAnchor} data-testid="chat-start-anchor" aria-hidden="true"></div>
   {#if data.session.turns.length === 0}
-    <div class="card" style="padding:1rem; background:var(--surface-weak);">
-      {t("session.noMessages", $locale)}
-    </div>
+    <div class="empty-state">{t("session.noMessages", $locale)}</div>
   {:else}
     <div class="chat-list">
       {#each data.session.turns as turn (turn.id)}
@@ -320,7 +327,7 @@ onDestroy(() => {
                   <div class="tool-card">
                     <div><strong>{call.name}</strong></div>
                     {#if call.arguments}
-                      <pre class="mono" style="white-space:pre-wrap; margin:0.4rem 0 0;">{call.arguments}</pre>
+                      <pre class="mono tool-pre">{call.arguments}</pre>
                     {/if}
                   </div>
                 {/each}
@@ -338,7 +345,7 @@ onDestroy(() => {
                 </summary>
                 {#each turn.toolResults as result (result.id)}
                   <div class="tool-card">
-                    <pre class="mono" style="white-space:pre-wrap; margin:0;">{result.output ?? "null"}</pre>
+                    <pre class="mono tool-pre tool-pre--flush">{result.output ?? "null"}</pre>
                   </div>
                 {/each}
               </details>

@@ -29,15 +29,13 @@ onMount(() => {
 </svelte:head>
 
 <div class="page-shell">
-  <header class="card" style="padding:0.8rem 1rem; margin-bottom:0.9rem;">
-    <div
-      style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;"
-    >
-      <div style="display:flex; flex-direction:column; gap:0.2rem;">
-        <strong style="font-size:1rem;">{t("app.name", $locale)}</strong>
-        <span style="font-size:0.85rem; color:var(--muted);">{t("app.description", $locale)}</span>
+  <header class="card site-header">
+    <div class="site-header-main">
+      <div class="site-branding">
+        <strong class="site-title">{t("app.name", $locale)}</strong>
+        <span class="site-description">{t("app.description", $locale)}</span>
       </div>
-      <div style="display:flex; align-items:center; gap:0.6rem;">
+      <div class="site-actions">
         <SseStatus />
         <ThemeSwitcher />
         <LanguageSwitcher />

@@ -19,29 +19,33 @@ const sessionTitle = (message: string | null, path: string) => {
 };
 </script>
 
-<section class="card" style="padding:1rem; margin-bottom:0.9rem;">
-  <div class="toolbar" style="justify-content:space-between; align-items:center;">
-    <div style="display:flex; flex-direction:column; gap:0.3rem;">
-      <h1 style="margin:0;">{t("project.title", $locale)}</h1>
-      <p style="margin:0; color:var(--muted);">{t("project.subtitle", $locale)}</p>
+<section class="card section-card">
+  <div class="toolbar toolbar-spread">
+    <div class="section-copy">
+      <h1 class="section-title">{t("project.title", $locale)}</h1>
+      <p class="section-subtitle">{t("project.subtitle", $locale)}</p>
     </div>
     <a class="button" data-testid="back-project-list" href="/projects">{t("common.backProjectList", $locale)}</a>
   </div>
-  <div class="meta-row" style="margin-top:0.6rem;">
-    <span>{t("project.path", $locale)}:</span>
-    <span class="mono">{data.project.meta.workspacePath}</span>
+  <div class="session-meta-grid">
+    <div class="session-meta-card">
+      <span class="session-meta-label">{t("project.path", $locale)}</span>
+      <span class="session-meta-value mono">{data.project.meta.workspacePath}</span>
+    </div>
   </div>
 </section>
 
-<section class="card" style="padding:1rem;">
+<section class="card section-card">
   {#if data.sessions.length === 0}
-    <div class="card" style="padding:1rem; background:var(--surface-weak);">{t("project.empty", $locale)}</div>
+    <div class="empty-state">{t("project.empty", $locale)}</div>
   {:else}
     <div class="chat-list">
       {#each data.sessions as session (session.id)}
         <a href={`/projects/${data.project.id}/sessions/${session.id}`} class="card list-item">
-          <strong>{sessionTitle(session.meta.firstUserMessage, session.jsonlFilePath)}</strong>
-          <div class="meta-row">
+          <div class="list-item-header">
+            <strong class="list-item-title">{sessionTitle(session.meta.firstUserMessage, session.jsonlFilePath)}</strong>
+          </div>
+          <div class="list-item-footer">
             <span>{t("project.messageCount", $locale)}: {session.meta.messageCount}</span>
             <span>{t("project.startedAt", $locale)}: {formatDate(session.meta.startedAt)}</span>
             <span>{t("project.updatedAt", $locale)}: {formatDate(session.meta.lastModifiedAt)}</span>

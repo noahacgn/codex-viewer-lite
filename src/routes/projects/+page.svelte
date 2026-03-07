@@ -1,6 +1,5 @@
 <script lang="ts">
 import { locale, t } from "$lib/i18n/store";
-import type { Project } from "$lib/shared/types";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -52,35 +51,39 @@ const sortLabel = (key: "updated" | "name" | "count") => {
 };
 </script>
 
-<section class="card" style="padding:1rem; margin-bottom:0.9rem;">
-  <h1 style="margin:0;">{t("projects.title", $locale)}</h1>
-  <p style="margin:0.35rem 0 0; color:var(--muted);">{t("projects.subtitle", $locale)}</p>
+<section class="card hero-panel">
+  <div class="section-copy">
+    <h1 class="section-title">{t("projects.title", $locale)}</h1>
+    <p class="section-subtitle">{t("projects.subtitle", $locale)}</p>
+  </div>
 </section>
 
-<section class="card" style="padding:1rem;">
-  <div class="toolbar" style="margin-bottom:0.9rem;">
-    <input class="input" bind:value={search} placeholder={t("projects.search", $locale)} style="flex:1;" />
+<section class="card section-card">
+  <div class="toolbar filter-toolbar section-toolbar">
+    <input class="input filter-search" bind:value={search} placeholder={t("projects.search", $locale)} />
     <select class="select" bind:value={sortKey}>
       <option value="updated">{sortLabel("updated")}</option>
       <option value="name">{sortLabel("name")}</option>
       <option value="count">{sortLabel("count")}</option>
     </select>
-    <button class="button" type="button" onclick={() => (descending = !descending)}>
+    <button class="button sort-direction-button" type="button" onclick={() => (descending = !descending)}>
       {descending ? "↓" : "↑"}
     </button>
   </div>
 
   {#if filteredProjects.length === 0}
-    <div class="card" style="padding:1rem; background:var(--surface-weak);">{t("projects.empty", $locale)}</div>
+    <div class="empty-state">{t("projects.empty", $locale)}</div>
   {:else}
     <div class="list-grid">
       {#each filteredProjects as project (project.id)}
         <a href={`/projects/${project.id}`} class="card list-item">
-          <strong>{project.meta.workspaceName}</strong>
-          <div class="meta-row">
-            <span class="mono">{project.meta.workspacePath}</span>
+          <div class="list-item-header">
+            <strong class="list-item-title">{project.meta.workspaceName}</strong>
           </div>
           <div class="meta-row">
+            <span class="path-chip mono">{project.meta.workspacePath}</span>
+          </div>
+          <div class="list-item-footer">
             <span>{project.meta.sessionCount} {t("projects.sessions", $locale)}</span>
             <span>{t("projects.lastActive", $locale)}: {formatDate(project.meta.lastSessionAt)}</span>
           </div>

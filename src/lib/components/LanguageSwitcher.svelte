@@ -2,7 +2,7 @@
 import { locale, setLocale } from "$lib/i18n/store";
 </script>
 
-<label>
+<label class="language-switcher">
   <span class="sr-only">language</span>
   <select
     class="select"
@@ -16,16 +16,3 @@ import { locale, setLocale } from "$lib/i18n/store";
     <option value="en-US">English</option>
   </select>
 </label>
-
-<style>
-  .sr-only {
-    border: 0;
-    clip: rect(0, 0, 0, 0);
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    width: 1px;
-  }
-</style>

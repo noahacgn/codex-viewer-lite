@@ -8,7 +8,7 @@ const nextThemeLabel = $derived.by(() => {
 </script>
 
 <button
-  class="button theme-toggle"
+  class="button icon-button theme-toggle"
   type="button"
   data-testid="theme-toggle"
   aria-label={nextThemeLabel}
@@ -36,19 +36,3 @@ const nextThemeLabel = $derived.by(() => {
     </svg>
   {/if}
 </button>
-
-<style>
-  .theme-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.3rem;
-    min-width: 2.3rem;
-    padding: 0.45rem;
-  }
-
-  .theme-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-</style>
