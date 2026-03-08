@@ -274,4 +274,176 @@ describe("parseCodexSession", () => {
     expect(parsed.firstUserMessage).toBe("压缩前的首条真实问题");
     expect(parsed.turns[0]?.messages[0]?.text).toBe("压缩后的后续问题");
   });
+
+  it("renders request_user_input as timeline messages and removes duplicate tool entries", () => {
+    const parsed = parseCodexSession(
+      stringifyLines([
+        baseSessionMeta,
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:00.000Z",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "先帮我锁一下实施方向" }],
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:01.000Z",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "我先问两个问题。" }],
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:02.000Z",
+          payload: {
+            type: "function_call",
+            name: "request_user_input",
+            arguments: JSON.stringify({
+              questions: [
+                {
+                  header: "使用形态",
+                  id: "local_form",
+                  question: "“本地自己用”具体更接近哪种形态？",
+                  options: [
+                    {
+                      label: "本地网页 (Recommended)",
+                      description: "在浏览器里访问 localhost 或静态页面，保留网站形态。",
+                    },
+                    {
+                      label: "桌面应用",
+                      description: "打包成桌面程序。",
+                    },
+                  ],
+                },
+                {
+                  header: "更新触发",
+                  id: "update_trigger",
+                  question: "数据更新你希望怎么触发？",
+                  options: [
+                    {
+                      label: "手动更新命令 (Recommended)",
+                      description: "显式执行一次 sync/build。",
+                    },
+                  ],
+                },
+              ],
+            }),
+            call_id: "call_request_user_input",
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:03.000Z",
+          payload: {
+            type: "function_call_output",
+            call_id: "call_request_user_input",
+            output: JSON.stringify({
+              answers: {
+                local_form: {
+                  answers: ["本地网页 (Recommended)"],
+                },
+                update_trigger: {
+                  answers: ["None of the above", "user_note: 前端你打算怎么实现, 用框架吗"],
+                },
+              },
+            }),
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:04.000Z",
+          payload: {
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: "收到，我继续往下规划。" }],
+          },
+        },
+      ]),
+    );
+
+    expect(parsed.firstUserMessage).toBe("先帮我锁一下实施方向");
+    expect(parsed.turns[0]?.messages.map((message) => message.kind)).toEqual([
+      "user",
+      "assistant",
+      "user_input_request",
+      "user_input_response",
+      "assistant",
+    ]);
+
+    const requestMessage = parsed.turns[0]?.messages[2];
+    expect(requestMessage?.text).toContain("### 使用形态");
+    expect(requestMessage?.text).toContain(
+      "本地网页 (Recommended): 在浏览器里访问 localhost 或静态页面，保留网站形态。",
+    );
+
+    const responseMessage = parsed.turns[0]?.messages[3];
+    expect(responseMessage?.text).toContain("### 更新触发");
+    expect(responseMessage?.text).toContain("- None of the above");
+    expect(responseMessage?.text).toContain("Note: 前端你打算怎么实现, 用框架吗");
+
+    expect(parsed.turns[0]?.toolCalls).toHaveLength(0);
+    expect(parsed.turns[0]?.toolResults).toHaveLength(0);
+  });
+
+  it("keeps request_user_input in the tool area when the answer payload cannot be parsed", () => {
+    const parsed = parseCodexSession(
+      stringifyLines([
+        baseSessionMeta,
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:00.000Z",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "先问我两个问题" }],
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:02.000Z",
+          payload: {
+            type: "function_call",
+            name: "request_user_input",
+            arguments: JSON.stringify({
+              questions: [
+                {
+                  header: "使用形态",
+                  id: "local_form",
+                  question: "“本地自己用”具体更接近哪种形态？",
+                  options: [{ label: "本地网页 (Recommended)" }],
+                },
+              ],
+            }),
+            call_id: "call_request_user_input",
+          },
+        },
+        {
+          type: "response_item",
+          timestamp: "2026-03-08T06:20:03.000Z",
+          payload: {
+            type: "function_call_output",
+            call_id: "call_request_user_input",
+            output: '{"answers":',
+          },
+        },
+      ]),
+    );
+
+    expect(parsed.turns[0]?.messages).toMatchObject([
+      {
+        kind: "user",
+        text: "先问我两个问题",
+      },
+      {
+        kind: "user_input_request",
+      },
+    ]);
+    expect(parsed.turns[0]?.toolCalls.map((call) => call.name)).toEqual(["request_user_input"]);
+    expect(parsed.turns[0]?.toolResults.map((result) => result.output)).toEqual(['{"answers":']);
+  });
 });

@@ -290,9 +290,6 @@ summary {
 }
 
 .site-header {
-  position: sticky;
-  top: 1rem;
-  z-index: 20;
   padding: 1rem 1.25rem;
   border-color: var(--border-hover);
   background: linear-gradient(180deg, var(--surface-overlay) 0%, var(--surface) 100%);
@@ -756,6 +753,20 @@ a.card.list-item:focus-visible {
   background: var(--user-bubble-accent);
 }
 
+.chat-row.user-input-request::before {
+  border-color: var(--info-border);
+  background: var(--info);
+}
+
+.chat-row.user-input-response {
+  justify-content: flex-end;
+}
+
+.chat-row.user-input-response::before {
+  border-color: var(--user-bubble-border);
+  background: var(--user-bubble-accent);
+}
+
 .chat-row.subagent-prompt::before {
   border-color: var(--subagent-prompt-border);
   background: var(--subagent-prompt-accent);
@@ -808,7 +819,27 @@ a.card.list-item:focus-visible {
   background: var(--user-bubble-bg), linear-gradient(180deg, var(--surface) 0%, var(--surface-raised) 100%);
 }
 
+.chat-row.user-input-request .chat-bubble {
+  margin-right: 2rem;
+  border-color: var(--info-border);
+  background: linear-gradient(180deg, var(--info-weak) 0%, var(--surface-raised) 100%);
+}
+
+.chat-row.user-input-response .chat-bubble {
+  margin-left: 3rem;
+  border-color: var(--user-bubble-border);
+  background: var(--user-bubble-bg), linear-gradient(180deg, var(--surface) 0%, var(--surface-raised) 100%);
+}
+
 .chat-row.user .chat-bubble::before {
+  background: var(--user-bubble-accent);
+}
+
+.chat-row.user-input-request .chat-bubble::before {
+  background: var(--info);
+}
+
+.chat-row.user-input-response .chat-bubble::before {
   background: var(--user-bubble-accent);
 }
 
@@ -1183,6 +1214,8 @@ a.card.list-item:focus-visible {
   }
 
   .chat-row.user .chat-bubble,
+  .chat-row.user-input-request .chat-bubble,
+  .chat-row.user-input-response .chat-bubble,
   .chat-row.subagent-prompt .chat-bubble,
   .chat-row.subagent-response .chat-bubble {
     margin-left: 0;
@@ -1197,7 +1230,6 @@ a.card.list-item:focus-visible {
   }
 
   .site-header {
-    top: 0.75rem;
     padding: 0.9rem 1rem;
   }
 

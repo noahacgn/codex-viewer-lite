@@ -66,9 +66,19 @@ const isSubagentMessage = (message: CodexMessage) => {
   return message.kind === "subagent_prompt" || message.kind === "subagent_response";
 };
 
+const isUserInputMessage = (message: CodexMessage) => {
+  return message.kind === "user_input_request" || message.kind === "user_input_response";
+};
+
 const messageRowClass = (message: CodexMessage) => {
   if (message.kind === "user") {
     return "chat-row user";
+  }
+  if (message.kind === "user_input_request") {
+    return "chat-row user-input-request";
+  }
+  if (message.kind === "user_input_response") {
+    return "chat-row user-input-response";
   }
   if (message.kind === "subagent_prompt") {
     return "chat-row subagent-prompt";
@@ -82,6 +92,20 @@ const messageRowClass = (message: CodexMessage) => {
 
 const messageBubbleClass = () => {
   return "chat-bubble";
+};
+
+const hasMessageLabelRow = (message: CodexMessage) => {
+  return isSubagentMessage(message) || isUserInputMessage(message);
+};
+
+const messageLabel = (message: CodexMessage) => {
+  if (message.kind === "user_input_request") {
+    return t("session.userInputRequest", $locale);
+  }
+  if (message.kind === "user_input_response") {
+    return t("session.userInputResponse", $locale);
+  }
+  return subagentLabel(message);
 };
 
 const subagentLabel = (message: CodexMessage) => {
@@ -278,33 +302,35 @@ onDestroy(() => {
     <div class="empty-state">{t("session.noMessages", $locale)}</div>
   {:else}
     <div class="chat-list">
-      {#each data.session.turns as turn (turn.id)}
-        {#each turn.messages as message (message.id)}
-          <article class={messageRowClass(message)}>
-            <div class={messageBubbleClass()}>
-              {#if isSubagentMessage(message)}
-                <div class="chat-label-row">
-                  <span class="chat-label-chip">{subagentLabel(message)}</span>
-                  <span class="chat-label-chip mono" title={subagentAgentName(message)}>
-                    {subagentAgentName(message)}
-                  </span>
-                  {#if subagentStatusLabel(message)}
-                    <span
-                      class={`chat-label-chip ${
-                        message.status === "completed"
-                          ? "status-completed"
-                          : message.status === "errored"
-                            ? "status-errored"
-                            : ""
-                      }`}
-                    >
-                      {subagentStatusLabel(message)}
-                    </span>
-                  {/if}
-                </div>
-              {/if}
-              <MarkdownRenderer content={message.text} />
-              <div class="chat-meta-row">
+        {#each data.session.turns as turn (turn.id)}
+          {#each turn.messages as message (message.id)}
+            <article class={messageRowClass(message)}>
+              <div class={messageBubbleClass()}>
+                {#if hasMessageLabelRow(message)}
+                  <div class="chat-label-row">
+                    <span class="chat-label-chip">{messageLabel(message)}</span>
+                    {#if isSubagentMessage(message)}
+                      <span class="chat-label-chip mono" title={subagentAgentName(message)}>
+                        {subagentAgentName(message)}
+                      </span>
+                      {#if subagentStatusLabel(message)}
+                        <span
+                          class={`chat-label-chip ${
+                            message.status === "completed"
+                              ? "status-completed"
+                              : message.status === "errored"
+                                ? "status-errored"
+                                : ""
+                          }`}
+                        >
+                          {subagentStatusLabel(message)}
+                        </span>
+                      {/if}
+                    {/if}
+                  </div>
+                {/if}
+                <MarkdownRenderer content={message.text} />
+                <div class="chat-meta-row">
                 <div class="chat-time">{formatDate(message.timestamp)}</div>
                 <button
                   type="button"

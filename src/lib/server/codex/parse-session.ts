@@ -33,10 +33,29 @@ type ParsedResponseMessage = {
   subagentNotification: ParsedSubagentNotification | null;
 };
 
+type RequestUserInputOption = {
+  label: string;
+  description: string | null;
+};
+
+type RequestUserInputQuestion = {
+  id: string;
+  header: string | null;
+  question: string;
+  options: RequestUserInputOption[];
+};
+
+type PendingRequestUserInput = {
+  questions: RequestUserInputQuestion[];
+  toolCallId: string;
+  toolTurn: CodexSessionTurn;
+};
+
 type ParseState = {
   turns: CodexSessionTurn[];
   callIdToTurn: Map<string, CodexSessionTurn>;
   callIdToSubagentPrompt: Map<string, CodexMessage>;
+  pendingRequestUserInputs: Map<string, PendingRequestUserInput>;
   agentNicknameById: Map<string, string>;
   lastConversationMessageByKind: Map<"user" | "assistant", string>;
   firstUserMessage: string | null;
@@ -96,6 +115,7 @@ const createParseState = (): ParseState => {
     turns: [],
     callIdToTurn: new Map<string, CodexSessionTurn>(),
     callIdToSubagentPrompt: new Map<string, CodexMessage>(),
+    pendingRequestUserInputs: new Map<string, PendingRequestUserInput>(),
     agentNicknameById: new Map<string, string>(),
     lastConversationMessageByKind: new Map<"user" | "assistant", string>(),
     firstUserMessage: null,
@@ -206,6 +226,24 @@ const serializeUnknownValue = (value: unknown) => {
   return JSON.stringify(value);
 };
 
+const readNonEmptyString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = sanitizeInstructionTags(value).trim();
+  return normalized || null;
+};
+
+const readStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 const parseSubagentStatus = (status: unknown) => {
   if (status && typeof status === "object" && !Array.isArray(status)) {
     const completed = (status as { completed?: unknown }).completed;
@@ -281,6 +319,125 @@ const parseMessagePayload = (payload: unknown): ParsedResponseMessage | null => 
     isTimelineHidden: hasMatchingFragment(content, HIDDEN_TIMELINE_FRAGMENTS),
     subagentNotification: parseSubagentNotification(content),
   };
+};
+
+const parseRequestUserInputQuestions = (argumentsValue: unknown) => {
+  const payload = parseObjectValue(argumentsValue);
+  if (!payload || !Array.isArray(payload.questions)) {
+    return null;
+  }
+
+  const questions: RequestUserInputQuestion[] = [];
+  for (const item of payload.questions) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+
+    const question = readNonEmptyString((item as { question?: unknown }).question);
+    const id = readNonEmptyString((item as { id?: unknown }).id);
+    if (!question || !id) {
+      continue;
+    }
+
+    const options = Array.isArray((item as { options?: unknown }).options)
+      ? ((item as { options?: unknown }).options as unknown[])
+          .filter((option) => option && typeof option === "object" && !Array.isArray(option))
+          .map((option) => {
+            return {
+              label: readNonEmptyString((option as { label?: unknown }).label) ?? "Unknown option",
+              description: readNonEmptyString((option as { description?: unknown }).description),
+            } satisfies RequestUserInputOption;
+          })
+      : [];
+
+    questions.push({
+      id,
+      header: readNonEmptyString((item as { header?: unknown }).header),
+      question,
+      options,
+    });
+  }
+
+  return questions.length > 0 ? questions : null;
+};
+
+const formatRequestUserInputQuestions = (questions: RequestUserInputQuestion[]) => {
+  return questions
+    .map((question) => {
+      const title = question.header ?? question.question;
+      const optionLines = question.options.map((option) => {
+        return option.description ? `- ${option.label}: ${option.description}` : `- ${option.label}`;
+      });
+      return [`### ${title}`, question.header ? question.question : null, ...optionLines].filter(Boolean).join("\n\n");
+    })
+    .join("\n\n");
+};
+
+const splitUserInputAnswers = (answers: string[]) => {
+  const selections: string[] = [];
+  const notes: string[] = [];
+  for (const answer of answers) {
+    if (answer.startsWith("user_note:")) {
+      const note = answer.slice("user_note:".length).trim();
+      if (note) {
+        notes.push(note);
+      }
+      continue;
+    }
+    selections.push(answer);
+  }
+  return { selections, notes };
+};
+
+const formatRequestUserInputAnswers = (questions: RequestUserInputQuestion[], outputValue: unknown) => {
+  const payload = parseObjectValue(outputValue);
+  const answersValue = payload?.answers;
+  if (!answersValue || typeof answersValue !== "object" || Array.isArray(answersValue)) {
+    return null;
+  }
+
+  const answers = answersValue as Record<string, unknown>;
+  const sections: string[] = [];
+  const seenIds = new Set<string>();
+
+  for (const question of questions) {
+    const entry = parseObjectValue(answers[question.id]);
+    const answerList = readStringArray(entry?.answers);
+    if (answerList.length === 0) {
+      continue;
+    }
+
+    seenIds.add(question.id);
+    const { selections, notes } = splitUserInputAnswers(answerList);
+    const lines = [
+      `### ${question.header ?? question.question}`,
+      ...selections.map((selection) => `- ${selection}`),
+      ...notes.map((note) => `Note: ${note}`),
+    ];
+    sections.push(lines.join("\n"));
+  }
+
+  for (const [questionId, value] of Object.entries(answers)) {
+    if (seenIds.has(questionId)) {
+      continue;
+    }
+
+    const entry = parseObjectValue(value);
+    const answerList = readStringArray(entry?.answers);
+    if (answerList.length === 0) {
+      continue;
+    }
+
+    const { selections, notes } = splitUserInputAnswers(answerList);
+    const lines = [
+      `### ${questionId}`,
+      ...selections.map((selection) => `- ${selection}`),
+      ...notes.map((note) => `Note: ${note}`),
+    ];
+    sections.push(lines.join("\n"));
+  }
+
+  return sections.length > 0 ? sections.join("\n\n") : null;
 };
 
 const createMessage = (
@@ -367,6 +524,17 @@ const pushSubagentPrompt = (state: ParseState, text: string, timestamp: string |
   if (callId) {
     state.callIdToSubagentPrompt.set(callId, message);
   }
+};
+
+const pushRequestUserInputMessage = (
+  state: ParseState,
+  kind: "user_input_request" | "user_input_response",
+  text: string,
+  timestamp: string | null,
+) => {
+  const message = createMessage(kind, text, timestamp, "response_item");
+  pushTurnMessage(state.turns, message);
+  return message;
 };
 
 const pushSubagentResponse = (
@@ -485,6 +653,11 @@ const addGenericToolCall = (
   if (callId) {
     state.callIdToTurn.set(callId, turn);
   }
+  return { toolCall, turn };
+};
+
+const hideToolCall = (turn: CodexSessionTurn, toolCallId: string) => {
+  turn.toolCalls = turn.toolCalls.filter((toolCall) => toolCall.id !== toolCallId);
 };
 
 const handleFunctionCall = (
@@ -502,7 +675,27 @@ const handleFunctionCall = (
     }
   }
 
-  addGenericToolCall(state, name, payload.arguments, callId, timestamp);
+  const toolCallEntry = addGenericToolCall(state, name, payload.arguments, callId, timestamp);
+  if (name !== "request_user_input") {
+    return;
+  }
+
+  const questions = parseRequestUserInputQuestions(payload.arguments);
+  if (!questions) {
+    return;
+  }
+
+  const formattedQuestions = formatRequestUserInputQuestions(questions);
+  pushRequestUserInputMessage(state, "user_input_request", formattedQuestions, timestamp);
+  if (!callId) {
+    return;
+  }
+
+  state.pendingRequestUserInputs.set(callId, {
+    questions,
+    toolCallId: toolCallEntry.toolCall.id,
+    toolTurn: toolCallEntry.turn,
+  });
 };
 
 const enrichSubagentPrompt = (state: ParseState, callId: string | null, outputValue: unknown) => {
@@ -524,6 +717,32 @@ const enrichSubagentPrompt = (state: ParseState, callId: string | null, outputVa
   return true;
 };
 
+const handleRequestUserInputResult = (
+  state: ParseState,
+  callId: string | null,
+  outputValue: unknown,
+  timestamp: string | null,
+) => {
+  if (!callId) {
+    return false;
+  }
+
+  const pending = state.pendingRequestUserInputs.get(callId);
+  if (!pending) {
+    return false;
+  }
+
+  const formattedAnswers = formatRequestUserInputAnswers(pending.questions, outputValue);
+  if (!formattedAnswers) {
+    return false;
+  }
+
+  hideToolCall(pending.toolTurn, pending.toolCallId);
+  pushRequestUserInputMessage(state, "user_input_response", formattedAnswers, timestamp);
+  state.pendingRequestUserInputs.delete(callId);
+  return true;
+};
+
 const handleFunctionCallOutput = (
   state: ParseState,
   payload: { call_id?: unknown; output?: unknown },
@@ -531,6 +750,9 @@ const handleFunctionCallOutput = (
 ) => {
   const callId = typeof payload.call_id === "string" ? payload.call_id : null;
   if (enrichSubagentPrompt(state, callId, payload.output)) {
+    return;
+  }
+  if (handleRequestUserInputResult(state, callId, payload.output, timestamp)) {
     return;
   }
 

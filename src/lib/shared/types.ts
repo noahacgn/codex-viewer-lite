@@ -1,6 +1,6 @@
 export type CodexMessage = {
   id: string;
-  kind: "user" | "assistant" | "subagent_prompt" | "subagent_response";
+  kind: "user" | "assistant" | "subagent_prompt" | "subagent_response" | "user_input_request" | "user_input_response";
   text: string;
   timestamp: string | null;
   source: "response_item" | "event_msg";
