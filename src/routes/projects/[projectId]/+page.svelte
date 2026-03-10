@@ -20,12 +20,14 @@ const sessionTitle = (message: string | null, path: string) => {
 </script>
 
 <section class="card section-card">
-  <div class="toolbar toolbar-spread">
+  <div class="section-header">
     <div class="section-copy">
       <h1 class="section-title">{t("project.title", $locale)}</h1>
       <p class="section-subtitle">{t("project.subtitle", $locale)}</p>
     </div>
-    <a class="button" data-testid="back-project-list" href="/projects">{t("common.backProjectList", $locale)}</a>
+    <a class="button section-header-action" data-testid="back-project-list" href="/projects">
+      {t("common.backProjectList", $locale)}
+    </a>
   </div>
   <div class="session-meta-grid">
     <div class="session-meta-card">

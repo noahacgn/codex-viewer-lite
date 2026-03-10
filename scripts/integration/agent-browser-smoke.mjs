@@ -17,10 +17,13 @@ const FIXTURE_VISIBLE_PRELUDE_MESSAGE_COUNT = 2;
 const FIXTURE_BASE_MESSAGE_COUNT = FIXTURE_TURN_COUNT * 2 + FIXTURE_VISIBLE_PRELUDE_MESSAGE_COUNT;
 const APPEND_BODY_LINE_COUNT = 28;
 const BOTTOM_ALIGNMENT_TOLERANCE_PX = 96;
+const DEFAULT_VIEWPORT_WIDTH = 1280;
+const NARROW_VIEWPORT_WIDTH = 680;
+const VIEWPORT_HEIGHT = 900;
 const repoRoot = process.cwd();
 const isolatedHome = resolve(repoRoot, ".tmp", "agent-browser-home");
 const fixtureWorkspace = "D:\\Integration\\cvlite-it-workspace";
-const fixturePrompt = "integration-smoke-prompt";
+const fixturePrompt = "这是一个用于验证返回按钮在窄视口和长标题条件下仍然保持右侧固定的集成测试提示文本";
 const fixtureReply = "integration smoke assistant reply";
 const fixturePermissionsPrelude =
   "<permissions instructions>\nFilesystem sandboxing defines which files can be read or written.\n</permissions instructions>";
@@ -100,6 +103,21 @@ const THEME_STATE_EXPR =
   "(()=>{const root=document.documentElement;let stored=null;" +
   "try{stored=window.localStorage.getItem('cv-lite.theme');}catch{}" +
   "return{theme:root.dataset.theme??null,colorScheme:root.style.colorScheme||null,stored};})()";
+
+const buildHeaderLayoutExpr = (buttonTestId) => {
+  return (
+    "(()=>{" +
+    "const copy=document.querySelector('.section-copy')?.getBoundingClientRect();" +
+    `const button=document.querySelector('[data-testid="${buttonTestId}"]')?.getBoundingClientRect();` +
+    "if(!copy||!button){return null;}" +
+    "return{" +
+    "copy:{x:Math.round(copy.x),y:Math.round(copy.y),width:Math.round(copy.width),height:Math.round(copy.height)}," +
+    "button:{x:Math.round(button.x),y:Math.round(button.y),width:Math.round(button.width),height:Math.round(button.height)}," +
+    "sameRow:Math.abs(copy.y-button.y)<=2," +
+    "buttonBelowCopy:button.y>copy.y+8" +
+    "};})()"
+  );
+};
 
 const step = (name) => console.log(`\n[STEP] ${name}`);
 const pass = (name) => console.log(`[PASS] ${name}`);
@@ -328,6 +346,8 @@ const runCommand = async (name, command, args, options = {}) => {
     timeoutMs = COMMAND_TIMEOUT_MS,
     allowFailure = false,
     quiet = false,
+    successPattern = null,
+    killOnSuccess = false,
   } = options;
 
   if (!quiet) {
@@ -346,6 +366,7 @@ const runCommand = async (name, command, args, options = {}) => {
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let matchedSuccess = false;
 
     const resolveOnce = (value) => {
       if (settled) {
@@ -354,6 +375,26 @@ const runCommand = async (name, command, args, options = {}) => {
       settled = true;
       clearTimeout(timeoutHandle);
       resolveRun(value);
+    };
+
+    const finishOnSuccess = () => {
+      if (!successPattern || matchedSuccess || !successPattern.test(stdout)) {
+        return;
+      }
+      matchedSuccess = true;
+      resolveOnce({
+        code: 0,
+        stdout,
+        stderr,
+        timedOut: false,
+      });
+      if (killOnSuccess) {
+        setTimeout(() => {
+          if (child.exitCode === null) {
+            forceKill(child);
+          }
+        }, 150);
+      }
     };
 
     const timeoutHandle = setTimeout(() => {
@@ -368,6 +409,7 @@ const runCommand = async (name, command, args, options = {}) => {
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
+      finishOnSuccess();
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
@@ -650,6 +692,15 @@ const assertSessionListNoHorizontalOverflow = async (env, label) => {
   );
 };
 
+const assertHeaderActionPinned = async (env, label, buttonTestId) => {
+  const layout = await runEvalJson(`Read header layout (${label})`, buildHeaderLayoutExpr(buttonTestId), env, {
+    quiet: true,
+  });
+  assert(layout !== null, `Header layout is missing for ${label}`);
+  assert(layout.sameRow === true, `Header action moved to another row on ${label}: ${JSON.stringify(layout)}`);
+  assert(layout.buttonBelowCopy === false, `Header action dropped below title on ${label}: ${JSON.stringify(layout)}`);
+};
+
 const assertCopyAndToolRegression = async (env) => {
   const copyState = await runEvalJson("Read copy button state", COPY_BUTTON_STATE_EXPR, env, {
     quiet: true,
@@ -688,7 +739,11 @@ const runIntegrationFlow = async (env) => {
     allowFailure: true,
     timeoutMs: 5000,
   });
-  await runAgent("Open /projects", ["open", `${BASE_URL}/projects`], env, { timeoutMs: 12000 });
+  await runAgent("Open /projects", ["open", `${BASE_URL}/projects`], env, {
+    timeoutMs: 12000,
+    successPattern: /http:\/\/127\.0\.0\.1:4173\/projects/u,
+    killOnSuccess: true,
+  });
   await waitForUrlRegex(env, "/projects", /\/projects\/?$/);
 
   const initialThemeState = await readThemeState(env, "projects initial");
@@ -703,6 +758,8 @@ const runIntegrationFlow = async (env) => {
 
   await runAgent("Reload /projects after theme toggle", ["open", `${BASE_URL}/projects`], env, {
     timeoutMs: 12000,
+    successPattern: /http:\/\/127\.0\.0\.1:4173\/projects/u,
+    killOnSuccess: true,
   });
   await waitForUrlRegex(env, "/projects after theme reload", /\/projects\/?$/);
   await waitForThemeState(env, toggledTheme);
@@ -722,6 +779,13 @@ const runIntegrationFlow = async (env) => {
   await waitForUrlRegex(env, "project sessions", /\/projects\/[^/]+$/);
   await waitForSessionMessageCount(env, FIXTURE_BASE_MESSAGE_COUNT);
   await assertSessionListNoHorizontalOverflow(env, "project sessions initial load");
+  await runAgent(
+    "Set narrow viewport for project sessions header layout",
+    ["set", "viewport", String(NARROW_VIEWPORT_WIDTH), String(VIEWPORT_HEIGHT)],
+    env,
+  );
+  await assertSessionListNoHorizontalOverflow(env, "project sessions narrow layout");
+  await assertHeaderActionPinned(env, "project sessions narrow layout", "back-project-list");
 
   const sessionListTitle = await runAgent("Read first session title", ["get", "text", ".list-item-title"], env);
   assertMatch(sessionListTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session list title is unexpected");
@@ -743,6 +807,13 @@ const runIntegrationFlow = async (env) => {
   await runAgent("Open first session detail", ["click", "a.list-item[href*='/sessions/']"], env);
   await waitForUrlRegex(env, "session detail", /\/sessions\/[^/]+$/);
   await waitForBodyText(env, fixturePrompt, 12000);
+  await assertSessionListNoHorizontalOverflow(env, "session detail narrow layout");
+  await assertHeaderActionPinned(env, "session detail narrow layout", "back-session-list");
+  await runAgent(
+    "Restore default viewport after header layout checks",
+    ["set", "viewport", String(DEFAULT_VIEWPORT_WIDTH), String(VIEWPORT_HEIGHT)],
+    env,
+  );
 
   const sessionHeaderTitle = await runAgent("Read session detail title", ["get", "text", ".session-title"], env);
   assertMatch(sessionHeaderTitle.stdout, new RegExp(`^${fixturePrompt}\\s*$`), "Session detail title is unexpected");

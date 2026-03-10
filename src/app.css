@@ -316,7 +316,6 @@ summary {
 }
 
 .site-header-main,
-.section-header,
 .toolbar-spread {
   display: flex;
   align-items: flex-start;
@@ -325,11 +324,32 @@ summary {
   flex-wrap: wrap;
 }
 
+.section-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 1rem;
+}
+
 .site-branding,
 .section-copy {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.section-header > .section-copy {
+  min-width: 0;
+}
+
+.section-header > .section-copy > * {
+  overflow-wrap: anywhere;
+}
+
+.section-header-action {
+  align-self: start;
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .site-title {

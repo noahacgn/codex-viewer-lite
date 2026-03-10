@@ -266,12 +266,12 @@ onDestroy(() => {
 </script>
 
 <section class="card section-card">
-  <div class="toolbar toolbar-spread">
+  <div class="section-header">
     <div class="section-copy">
       <h1 class="section-title">{t("session.title", $locale)}</h1>
       <strong class="session-title">{sessionTitle()}</strong>
     </div>
-    <a class="button" data-testid="back-session-list" href={`/projects/${data.projectId}`}>
+    <a class="button section-header-action" data-testid="back-session-list" href={`/projects/${data.projectId}`}>
       {t("common.backSessionList", $locale)}
     </a>
   </div>
