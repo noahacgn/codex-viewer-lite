@@ -1242,6 +1242,7 @@ a.card.list-item:focus-visible {
   z-index: 30;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 0.55rem;
 }
 
