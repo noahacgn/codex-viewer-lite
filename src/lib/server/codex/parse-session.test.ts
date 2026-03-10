@@ -446,4 +446,138 @@ describe("parseCodexSession", () => {
     expect(parsed.turns[0]?.toolCalls.map((call) => call.name)).toEqual(["request_user_input"]);
     expect(parsed.turns[0]?.toolResults.map((result) => result.output)).toEqual(['{"answers":']);
   });
+
+  it("uses the latest valid token_count snapshot and ignores trailing null info", () => {
+    const parsed = parseCodexSession(
+      stringifyLines([
+        baseSessionMeta,
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T10:00:00.000Z",
+          payload: {
+            type: "token_count",
+            info: {
+              model_context_window: 128000,
+              last_token_usage: {
+                total_tokens: 24000,
+              },
+            },
+          },
+        },
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T10:01:00.000Z",
+          payload: {
+            type: "token_count",
+            info: {
+              model_context_window: 200000,
+              last_token_usage: {
+                total_tokens: 62000,
+              },
+              rate_limits: {
+                primary: {
+                  used_percent: 72.5,
+                },
+              },
+            },
+          },
+        },
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T10:02:00.000Z",
+          payload: {
+            type: "token_count",
+            info: null,
+          },
+        },
+      ]),
+    );
+
+    expect(parsed.latestContext).toEqual({
+      remainingPercent: 73,
+      usedPercent: 27,
+      totalTokens: 62000,
+      modelContextWindow: 200000,
+      timestamp: "2026-03-09T10:01:00.000Z",
+      source: "token_count",
+    });
+  });
+
+  it("falls back to the latest turn_started context window when no valid token snapshot exists", () => {
+    const parsed = parseCodexSession(
+      stringifyLines([
+        baseSessionMeta,
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T11:00:00.000Z",
+          payload: {
+            type: "turn_started",
+            model_context_window: 120000,
+          },
+        },
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T11:01:00.000Z",
+          payload: {
+            type: "token_count",
+            info: null,
+          },
+        },
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T11:02:00.000Z",
+          payload: {
+            type: "turn_started",
+            model_context_window: 150000,
+          },
+        },
+      ]),
+    );
+
+    expect(parsed.latestContext).toEqual({
+      remainingPercent: 100,
+      usedPercent: 0,
+      totalTokens: 0,
+      modelContextWindow: 150000,
+      timestamp: "2026-03-09T11:02:00.000Z",
+      source: "turn_started",
+    });
+  });
+
+  it("returns an unknown token_count snapshot when required fields are missing", () => {
+    const parsed = parseCodexSession(
+      stringifyLines([
+        baseSessionMeta,
+        {
+          type: "event_msg",
+          timestamp: "2026-03-09T12:00:00.000Z",
+          payload: {
+            type: "token_count",
+            info: {
+              total_token_usage: {
+                total_tokens: 88000,
+              },
+              last_token_usage: {
+                total_tokens: "not-a-number",
+              },
+              rate_limits: {
+                primary: {
+                  used_percent: 72.5,
+                },
+              },
+            },
+          },
+        },
+      ]),
+    );
+
+    expect(parsed.latestContext).toEqual({
+      remainingPercent: null,
+      usedPercent: null,
+      totalTokens: null,
+      modelContextWindow: null,
+      timestamp: "2026-03-09T12:00:00.000Z",
+      source: "token_count",
+    });
+  });
 });

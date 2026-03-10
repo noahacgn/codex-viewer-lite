@@ -76,6 +76,7 @@ export const getSession = async (projectId: string, sessionId: string): Promise<
     sessionUuid: parsed.sessionMeta.sessionUuid,
     jsonlFilePath: sessionPath,
     meta,
+    latestContext: parsed.latestContext,
     turns: parsed.turns,
     sessionMeta: parsed.sessionMeta,
   };

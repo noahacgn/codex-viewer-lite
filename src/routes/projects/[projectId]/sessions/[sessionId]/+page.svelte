@@ -2,7 +2,7 @@
 import { onDestroy, onMount, tick } from "svelte";
 import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
 import { locale, t } from "$lib/i18n/store";
-import type { CodexMessage } from "$lib/shared/types";
+import type { CodexMessage, SessionContextSnapshot } from "$lib/shared/types";
 import type { PageData } from "./$types";
 
 let { data }: { data: PageData } = $props();
@@ -24,6 +24,32 @@ const formatDate = (iso: string | null) => {
     return "—";
   }
   return new Date(iso).toLocaleString($locale);
+};
+
+const formatNumber = (value: number | null) => {
+  if (value === null) {
+    return t("session.contextUnknown", $locale);
+  }
+  return new Intl.NumberFormat($locale).format(value);
+};
+
+const formatPercent = (value: number | null) => {
+  if (value === null) {
+    return t("session.contextUnknown", $locale);
+  }
+  return `${value}%`;
+};
+
+const hasKnownContextLeft = (snapshot: SessionContextSnapshot | null) => {
+  return snapshot?.remainingPercent !== null;
+};
+
+const formatContextWindow = (snapshot: SessionContextSnapshot | null) => {
+  if (!snapshot || snapshot.totalTokens === null || snapshot.modelContextWindow === null) {
+    return t("session.contextUnknown", $locale);
+  }
+
+  return `${formatNumber(snapshot.totalTokens)} / ${formatNumber(snapshot.modelContextWindow)} ${t("session.contextTokens", $locale)}`;
 };
 
 const sessionTitle = () => {
@@ -283,6 +309,31 @@ onDestroy(() => {
     <div class="session-meta-card">
       <span class="session-meta-label">{t("session.sessionId", $locale)}</span>
       <span class="session-meta-value mono">{data.session.sessionUuid ?? data.session.id}</span>
+    </div>
+    <div class="session-meta-card session-context-card">
+      <span class="session-meta-label">{t("session.contextSnapshot", $locale)}</span>
+      <div class="session-context-primary">
+        <span class="session-context-value">
+          {#if hasKnownContextLeft(data.session.latestContext)}
+            {formatPercent(data.session.latestContext?.remainingPercent ?? null)}
+          {:else}
+            {t("session.contextUnknown", $locale)}
+          {/if}
+        </span>
+        {#if hasKnownContextLeft(data.session.latestContext)}
+          <span class="session-context-caption">{t("session.contextLeft", $locale)}</span>
+        {/if}
+      </div>
+      <dl class="session-context-stats">
+        <div class="session-context-stat">
+          <dt>{t("session.contextUsed", $locale)}</dt>
+          <dd>{formatPercent(data.session.latestContext?.usedPercent ?? null)}</dd>
+        </div>
+        <div class="session-context-stat">
+          <dt>{t("session.contextWindow", $locale)}</dt>
+          <dd class="mono">{formatContextWindow(data.session.latestContext)}</dd>
+        </div>
+      </dl>
     </div>
   </div>
 </section>

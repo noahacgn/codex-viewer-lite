@@ -4,6 +4,7 @@ import type {
   CodexSessionTurn,
   CodexToolCall,
   CodexToolResult,
+  SessionContextSnapshot,
 } from "$lib/shared/types";
 
 type CodexLogLine = {
@@ -51,6 +52,11 @@ type PendingRequestUserInput = {
   toolTurn: CodexSessionTurn;
 };
 
+type TurnStartedContextWindow = {
+  modelContextWindow: number;
+  timestamp: string | null;
+};
+
 type ParseState = {
   turns: CodexSessionTurn[];
   callIdToTurn: Map<string, CodexSessionTurn>;
@@ -60,6 +66,8 @@ type ParseState = {
   lastConversationMessageByKind: Map<"user" | "assistant", string>;
   firstUserMessage: string | null;
   sessionMeta: CodexSessionMeta;
+  latestTokenContext: SessionContextSnapshot | null;
+  latestTurnStartedContextWindow: TurnStartedContextWindow | null;
 };
 
 const createEntryId = (() => {
@@ -88,6 +96,7 @@ const TITLE_CONTEXT_FRAGMENTS: TextFragment[] = [
   SUBAGENT_NOTIFICATION_FRAGMENT,
 ];
 const HIDDEN_TIMELINE_FRAGMENTS: TextFragment[] = [PERMISSIONS_FRAGMENT];
+const BASELINE_TOKENS = 12_000;
 
 const createTurn = (index: number): CodexSessionTurn => {
   return {
@@ -120,6 +129,8 @@ const createParseState = (): ParseState => {
     lastConversationMessageByKind: new Map<"user" | "assistant", string>(),
     firstUserMessage: null,
     sessionMeta: createEmptySessionMeta(),
+    latestTokenContext: null,
+    latestTurnStartedContextWindow: null,
   };
 };
 
@@ -242,6 +253,69 @@ const readStringArray = (value: unknown) => {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean);
+};
+
+const readFiniteNumber = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const clampNumber = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};
+
+const calculateRemainingPercent = (modelContextWindow: number | null, totalTokens: number | null) => {
+  if (modelContextWindow === null || totalTokens === null) {
+    return null;
+  }
+
+  const effectiveWindow = modelContextWindow - BASELINE_TOKENS;
+  if (effectiveWindow <= 0) {
+    return null;
+  }
+
+  const usedTokens = Math.max(totalTokens - BASELINE_TOKENS, 0);
+  const remainingPercent = ((effectiveWindow - usedTokens) / effectiveWindow) * 100;
+  return Math.round(clampNumber(remainingPercent, 0, 100));
+};
+
+const buildTokenContextSnapshot = (infoValue: unknown, timestamp: string | null): SessionContextSnapshot | null => {
+  const info = parseObjectValue(infoValue);
+  if (!info) {
+    return null;
+  }
+
+  const lastTokenUsage = parseObjectValue(info.last_token_usage);
+  const modelContextWindow = readFiniteNumber(info.model_context_window);
+  const totalTokens = readFiniteNumber(lastTokenUsage?.total_tokens);
+  const remainingPercent = calculateRemainingPercent(modelContextWindow, totalTokens);
+
+  return {
+    remainingPercent,
+    usedPercent: remainingPercent === null ? null : 100 - remainingPercent,
+    totalTokens,
+    modelContextWindow,
+    timestamp,
+    source: "token_count",
+  };
+};
+
+const buildTurnStartedFallback = (context: TurnStartedContextWindow): SessionContextSnapshot => {
+  return {
+    remainingPercent: 100,
+    usedPercent: 0,
+    totalTokens: 0,
+    modelContextWindow: context.modelContextWindow,
+    timestamp: context.timestamp,
+    source: "turn_started",
+  };
 };
 
 const parseSubagentStatus = (status: unknown) => {
@@ -767,11 +841,68 @@ const handleFunctionCallOutput = (
   turn.toolResults.push(toolResult);
 };
 
-const handleEventMessage = (
+const handleTokenCountEvent = (
   state: ParseState,
-  payload: { type?: unknown; text?: unknown; message?: unknown },
+  payload: { type?: unknown; info?: unknown },
   timestamp: string | null,
 ) => {
+  if (payload.type !== "token_count") {
+    return false;
+  }
+
+  const snapshot = buildTokenContextSnapshot(payload.info, timestamp);
+  if (snapshot) {
+    state.latestTokenContext = snapshot;
+  }
+  return true;
+};
+
+const handleTurnStartedEvent = (
+  state: ParseState,
+  payload: { type?: unknown; model_context_window?: unknown },
+  timestamp: string | null,
+) => {
+  if (payload.type !== "turn_started") {
+    return false;
+  }
+
+  const modelContextWindow = readFiniteNumber(payload.model_context_window);
+  if (modelContextWindow !== null) {
+    state.latestTurnStartedContextWindow = {
+      modelContextWindow,
+      timestamp,
+    };
+  }
+  return true;
+};
+
+const getLatestContextSnapshot = (state: ParseState) => {
+  if (state.latestTokenContext) {
+    return state.latestTokenContext;
+  }
+
+  if (state.latestTurnStartedContextWindow) {
+    return buildTurnStartedFallback(state.latestTurnStartedContextWindow);
+  }
+
+  return null;
+};
+
+const handleEventMessage = (
+  state: ParseState,
+  payload: {
+    type?: unknown;
+    text?: unknown;
+    message?: unknown;
+    info?: unknown;
+    model_context_window?: unknown;
+  },
+  timestamp: string | null,
+) => {
+  if (handleTokenCountEvent(state, payload, timestamp) || handleTurnStartedEvent(state, payload, timestamp)) {
+    return;
+  }
+
   if (payload.type !== "agent_message" && payload.type !== "user_message") {
     return;
   }
@@ -856,12 +987,23 @@ export const parseCodexSession = (content: string) => {
     }
 
     if (parsed.type === "event_msg" && parsed.payload && typeof parsed.payload === "object") {
-      handleEventMessage(state, parsed.payload as { type?: unknown; text?: unknown; message?: unknown }, timestamp);
+      handleEventMessage(
+        state,
+        parsed.payload as {
+          type?: unknown;
+          text?: unknown;
+          message?: unknown;
+          info?: unknown;
+          model_context_window?: unknown;
+        },
+        timestamp,
+      );
     }
   }
 
   return {
     firstUserMessage: state.firstUserMessage,
+    latestContext: getLatestContextSnapshot(state),
     turns: state.turns,
     sessionMeta: state.sessionMeta,
   };

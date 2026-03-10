@@ -63,9 +63,19 @@ export type Session = {
   meta: SessionMeta;
 };
 
+export type SessionContextSnapshot = {
+  remainingPercent: number | null;
+  usedPercent: number | null;
+  totalTokens: number | null;
+  modelContextWindow: number | null;
+  timestamp: string | null;
+  source: "token_count" | "turn_started";
+};
+
 export type SessionDetail = Session & {
   turns: CodexSessionTurn[];
   sessionMeta: CodexSessionMeta;
+  latestContext: SessionContextSnapshot | null;
 };
 
 export type ProjectMeta = {

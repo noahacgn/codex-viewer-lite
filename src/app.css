@@ -695,6 +695,61 @@ a.card.list-item:focus-visible {
   word-break: break-word;
 }
 
+.session-context-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.session-context-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.session-context-value {
+  font-size: clamp(1.5rem, 2vw, 1.95rem);
+  font-weight: 760;
+  line-height: 1;
+  color: var(--text);
+}
+
+.session-context-caption {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.session-context-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem 0.8rem;
+  margin: 0;
+}
+
+.session-context-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.session-context-stat dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.session-context-stat dd {
+  margin: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
 .session-instructions-card {
   padding: 1.05rem 1.15rem;
 }
