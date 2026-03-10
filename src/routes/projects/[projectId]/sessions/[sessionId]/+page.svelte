@@ -310,31 +310,6 @@ onDestroy(() => {
       <span class="session-meta-label">{t("session.sessionId", $locale)}</span>
       <span class="session-meta-value mono">{data.session.sessionUuid ?? data.session.id}</span>
     </div>
-    <div class="session-meta-card session-context-card">
-      <span class="session-meta-label">{t("session.contextSnapshot", $locale)}</span>
-      <div class="session-context-primary">
-        <span class="session-context-value">
-          {#if hasKnownContextLeft(data.session.latestContext)}
-            {formatPercent(data.session.latestContext?.remainingPercent ?? null)}
-          {:else}
-            {t("session.contextUnknown", $locale)}
-          {/if}
-        </span>
-        {#if hasKnownContextLeft(data.session.latestContext)}
-          <span class="session-context-caption">{t("session.contextLeft", $locale)}</span>
-        {/if}
-      </div>
-      <dl class="session-context-stats">
-        <div class="session-context-stat">
-          <dt>{t("session.contextUsed", $locale)}</dt>
-          <dd>{formatPercent(data.session.latestContext?.usedPercent ?? null)}</dd>
-        </div>
-        <div class="session-context-stat">
-          <dt>{t("session.contextWindow", $locale)}</dt>
-          <dd class="mono">{formatContextWindow(data.session.latestContext)}</dd>
-        </div>
-      </dl>
-    </div>
   </div>
 </section>
 
@@ -436,6 +411,31 @@ onDestroy(() => {
 </section>
 
 <div class="chat-jump-controls">
+  <div class="session-meta-card session-context-card chat-context-card">
+    <span class="session-meta-label">{t("session.contextSnapshot", $locale)}</span>
+    <div class="session-context-primary">
+      <span class="session-context-value">
+        {#if hasKnownContextLeft(data.session.latestContext)}
+          {formatPercent(data.session.latestContext?.remainingPercent ?? null)}
+        {:else}
+          {t("session.contextUnknown", $locale)}
+        {/if}
+      </span>
+      {#if hasKnownContextLeft(data.session.latestContext)}
+        <span class="session-context-caption">{t("session.contextLeft", $locale)}</span>
+      {/if}
+    </div>
+    <dl class="session-context-stats">
+      <div class="session-context-stat">
+        <dt>{t("session.contextUsed", $locale)}</dt>
+        <dd>{formatPercent(data.session.latestContext?.usedPercent ?? null)}</dd>
+      </div>
+      <div class="session-context-stat">
+        <dt>{t("session.contextWindow", $locale)}</dt>
+        <dd class="mono">{formatContextWindow(data.session.latestContext)}</dd>
+      </div>
+    </dl>
+  </div>
   <button
     type="button"
     class="chat-jump-button"

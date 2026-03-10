@@ -750,6 +750,24 @@ a.card.list-item:focus-visible {
   word-break: break-word;
 }
 
+.chat-context-card {
+  width: min(21rem, calc(100vw - 1.5rem));
+  padding: 0.8rem 0.9rem;
+  border-color: var(--border-strong);
+  background: var(--jump-bg);
+  box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.chat-context-card .session-context-value {
+  font-size: clamp(1.3rem, 1.25vw + 1rem, 1.7rem);
+}
+
+.chat-context-card .session-context-stats {
+  grid-template-columns: 1fr;
+}
+
 .session-instructions-card {
   padding: 1.05rem 1.15rem;
 }
