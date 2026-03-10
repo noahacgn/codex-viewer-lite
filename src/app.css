@@ -751,7 +751,7 @@ a.card.list-item:focus-visible {
 }
 
 .chat-context-card {
-  width: min(21rem, calc(100vw - 1.5rem));
+  width: min(19rem, calc(100vw - 1.5rem));
   padding: 0.8rem 0.9rem;
   border-color: var(--border-strong);
   background: var(--jump-bg);
