@@ -25,6 +25,8 @@ export const startSse = (onRefresh: () => void) => {
 
   connectionState.set("connecting");
   source = new EventSource("/api/events/state_changes");
+  let hasConnected = false;
+  let shouldRefreshOnReconnect = false;
 
   const handleEvent = (event: MessageEvent<string>) => {
     const payload = JSON.parse(event.data) as SseEvent;
@@ -35,9 +37,17 @@ export const startSse = (onRefresh: () => void) => {
 
   source.onopen = () => {
     connectionState.set("connected");
+    if (shouldRefreshOnReconnect) {
+      shouldRefreshOnReconnect = false;
+      scheduleRefresh(onRefresh);
+    }
+    hasConnected = true;
   };
 
   source.onerror = () => {
+    if (hasConnected) {
+      shouldRefreshOnReconnect = true;
+    }
     connectionState.set("reconnecting");
   };
 

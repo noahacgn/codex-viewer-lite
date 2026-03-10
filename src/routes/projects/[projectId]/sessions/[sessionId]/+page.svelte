@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount, tick } from "svelte";
+import { invalidate } from "$app/navigation";
 import MarkdownRenderer from "$lib/components/MarkdownRenderer.svelte";
 import { locale, t } from "$lib/i18n/store";
 import type { CodexMessage, SessionContextSnapshot } from "$lib/shared/types";
@@ -11,6 +12,7 @@ type MessageCopyState = "idle" | "copied";
 let copyStates = $state<Record<string, MessageCopyState>>({});
 const copyResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const NEAR_BOTTOM_THRESHOLD_PX = 160;
+const SESSION_REFRESH_FALLBACK_MS = 2000;
 
 let followLatest = $state(true);
 let hasPendingLatest = $state(false);
@@ -18,6 +20,9 @@ let lastSessionRevision = $state("");
 let chatStartAnchor = $state<HTMLDivElement | null>(null);
 let chatEndAnchor = $state<HTMLDivElement | null>(null);
 let isMounted = false;
+let refreshFallbackActive = false;
+let refreshFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+let refreshFallbackInFlight = false;
 
 const formatDate = (iso: string | null) => {
   if (!iso) {
@@ -161,6 +166,58 @@ const getSessionRevision = () => {
   return `${data.session.meta.lastModifiedAt ?? "null"}:${data.session.meta.messageCount}`;
 };
 
+const getSessionDetailApiPath = () => {
+  return `/api/projects/${data.projectId}/sessions/${data.session.id}`;
+};
+
+const isPageVisible = () => {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return document.visibilityState === "visible";
+};
+
+const stopRefreshFallback = () => {
+  if (!refreshFallbackTimer) {
+    return;
+  }
+  clearTimeout(refreshFallbackTimer);
+  refreshFallbackTimer = null;
+};
+
+const scheduleRefreshFallback = () => {
+  if (!refreshFallbackActive || !isPageVisible() || refreshFallbackTimer) {
+    return;
+  }
+  refreshFallbackTimer = setTimeout(() => {
+    refreshFallbackTimer = null;
+    void runRefreshFallback();
+  }, SESSION_REFRESH_FALLBACK_MS);
+};
+
+const runRefreshFallback = async () => {
+  if (!refreshFallbackActive || !isPageVisible() || refreshFallbackInFlight) {
+    scheduleRefreshFallback();
+    return;
+  }
+
+  refreshFallbackInFlight = true;
+  try {
+    await invalidate(getSessionDetailApiPath());
+  } finally {
+    refreshFallbackInFlight = false;
+    scheduleRefreshFallback();
+  }
+};
+
+const handleVisibilityChange = () => {
+  if (isPageVisible()) {
+    scheduleRefreshFallback();
+    return;
+  }
+  stopRefreshFallback();
+};
+
 const isReducedMotion = () => {
   if (typeof window === "undefined") {
     return false;
@@ -248,6 +305,7 @@ const waitForNextFrame = async () => {
 
 onMount(() => {
   lastSessionRevision = getSessionRevision();
+  refreshFallbackActive = true;
 
   const initializeScroll = async () => {
     await tick();
@@ -261,10 +319,15 @@ onMount(() => {
   };
 
   window.addEventListener("scroll", handleWindowScroll, { passive: true });
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  scheduleRefreshFallback();
   void initializeScroll();
 
   return () => {
+    refreshFallbackActive = false;
     window.removeEventListener("scroll", handleWindowScroll);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    stopRefreshFallback();
   };
 });
 
@@ -284,6 +347,8 @@ $effect(() => {
 });
 
 onDestroy(() => {
+  refreshFallbackActive = false;
+  stopRefreshFallback();
   for (const timer of copyResetTimers.values()) {
     clearTimeout(timer);
   }
