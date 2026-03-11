@@ -212,7 +212,8 @@ const runRefreshFallback = async () => {
 
 const handleVisibilityChange = () => {
   if (isPageVisible()) {
-    scheduleRefreshFallback();
+    stopRefreshFallback();
+    void runRefreshFallback();
     return;
   }
   stopRefreshFallback();
