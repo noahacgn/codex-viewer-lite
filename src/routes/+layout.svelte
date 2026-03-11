@@ -4,7 +4,6 @@ import { onMount } from "svelte";
 import { invalidateAll } from "$app/navigation";
 import favicon from "$lib/assets/favicon.svg";
 import { startSse } from "$lib/client/sse";
-import CodexReconnectBanner from "$lib/components/CodexReconnectBanner.svelte";
 import LanguageSwitcher from "$lib/components/LanguageSwitcher.svelte";
 import SseStatus from "$lib/components/SseStatus.svelte";
 import ThemeSwitcher from "$lib/components/ThemeSwitcher.svelte";
@@ -43,8 +42,6 @@ onMount(() => {
       </div>
     </div>
   </header>
-
-  <CodexReconnectBanner />
 
   {@render children()}
 </div>

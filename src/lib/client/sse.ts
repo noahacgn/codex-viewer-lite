@@ -1,5 +1,4 @@
 import { writable } from "svelte/store";
-import { reportIncident } from "$lib/client/codex-reconnect-alerts";
 import type { SseEvent } from "$lib/shared/types";
 
 type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -33,14 +32,6 @@ export const startSse = (onRefresh: () => void) => {
     const payload = JSON.parse(event.data) as SseEvent;
     if (payload.type === "project_changed" || payload.type === "session_changed") {
       scheduleRefresh(onRefresh);
-      return;
-    }
-    if (payload.type === "codex_reconnect_detected") {
-      reportIncident({
-        detectedAt: payload.timestamp,
-        message: payload.data.message,
-        source: payload.data.source,
-      });
     }
   };
 
@@ -61,7 +52,6 @@ export const startSse = (onRefresh: () => void) => {
   };
 
   source.onmessage = handleEvent;
-  source.addEventListener("codex_reconnect_detected", handleEvent as EventListener);
   source.addEventListener("project_changed", handleEvent as EventListener);
   source.addEventListener("session_changed", handleEvent as EventListener);
 
