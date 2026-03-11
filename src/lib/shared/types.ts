@@ -91,6 +91,13 @@ export type Project = {
   meta: ProjectMeta;
 };
 
+export type CodexReconnectSource = "codex-tui.log";
+
+export type CodexReconnectEventData = {
+  message: string;
+  source: CodexReconnectSource;
+};
+
 export type SseEvent =
   | {
       type: "connected";
@@ -121,4 +128,10 @@ export type SseEvent =
         sessionId: string | null;
         fileEventType: string;
       };
+    }
+  | {
+      type: "codex_reconnect_detected";
+      id: string;
+      timestamp: string;
+      data: CodexReconnectEventData;
     };

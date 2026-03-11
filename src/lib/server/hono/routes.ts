@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { getSseEventBus } from "$lib/server/events/event-bus";
+import { getCodexReconnectMonitor } from "$lib/server/events/codex-reconnect-monitor";
+import { createReconnectDetectedEvent, getSseEventBus } from "$lib/server/events/event-bus";
 import { getFileWatcherService } from "$lib/server/events/file-watcher";
 import { formatSseEvent } from "$lib/server/events/sse";
 import { decodeProjectId } from "$lib/server/ids";
@@ -14,6 +15,7 @@ const createSseResponse = () => {
     start(controller) {
       const encoder = new TextEncoder();
       const bus = getSseEventBus();
+      const reconnectMonitor = getCodexReconnectMonitor();
       const watcher = getFileWatcherService();
       watcher.startWatching();
 
@@ -26,6 +28,18 @@ const createSseResponse = () => {
       });
 
       bus.emitConnected("SSE connection established");
+      const reconnectIncident = reconnectMonitor.getCurrentIncident();
+      if (reconnectIncident) {
+        writeEvent(
+          formatSseEvent(
+            createReconnectDetectedEvent(
+              reconnectIncident.message,
+              reconnectIncident.source,
+              reconnectIncident.detectedAt,
+            ),
+          ),
+        );
+      }
       heartbeat = setInterval(() => {
         bus.emitHeartbeat();
       }, 30_000);

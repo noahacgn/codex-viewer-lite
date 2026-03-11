@@ -1,16 +1,20 @@
 import { EventEmitter } from "node:events";
-import type { SseEvent } from "$lib/shared/types";
+import type { CodexReconnectSource, SseEvent } from "$lib/shared/types";
 
 const createEventId = () => {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 };
 
-const withCommonFields = <T extends Omit<SseEvent, "id" | "timestamp">>(event: T): SseEvent => {
+const withCommonFields = <T extends Omit<SseEvent, "id" | "timestamp">>(event: T, timestamp?: string): SseEvent => {
   return {
     ...event,
     id: createEventId(),
-    timestamp: new Date().toISOString(),
+    timestamp: timestamp ?? new Date().toISOString(),
   } as SseEvent;
+};
+
+export const createReconnectDetectedEvent = (message: string, source: CodexReconnectSource, timestamp?: string) => {
+  return withCommonFields({ type: "codex_reconnect_detected", data: { message, source } }, timestamp);
 };
 
 class SseEventBus {
@@ -38,6 +42,10 @@ class SseEventBus {
       "event",
       withCommonFields({ type: "session_changed", data: { projectId, sessionId, fileEventType } }),
     );
+  }
+
+  public emitReconnectDetected(message: string, source: CodexReconnectSource, detectedAt?: string) {
+    this.emitter.emit("event", createReconnectDetectedEvent(message, source, detectedAt));
   }
 }
 

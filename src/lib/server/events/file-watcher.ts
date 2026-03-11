@@ -1,9 +1,10 @@
 import { existsSync, type FSWatcher, watch } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { readSessionHeader } from "$lib/server/codex/session-files";
+import { getCodexReconnectMonitor } from "$lib/server/events/codex-reconnect-monitor";
 import { getSseEventBus } from "$lib/server/events/event-bus";
 import { encodeProjectId, encodeSessionId } from "$lib/server/ids";
-import { codexHistoryFilePath, codexSessionsRootPath } from "$lib/server/paths";
+import { codexHistoryFilePath, codexLogDirPath, codexSessionsRootPath } from "$lib/server/paths";
 
 const withSafePath = (rootPath: string, relativePath: string) => {
   try {
@@ -25,6 +26,7 @@ class FileWatcherService {
 
     this.watchSessions();
     this.watchHistory();
+    this.watchCodexLogs();
   }
 
   private watchSessions() {
@@ -57,6 +59,24 @@ class FileWatcherService {
         return;
       }
       getSseEventBus().emitProjectChanged(null, "change");
+    });
+
+    this.watchers.push(watcher);
+  }
+
+  private watchCodexLogs() {
+    if (!existsSync(codexLogDirPath)) {
+      return;
+    }
+
+    const monitor = getCodexReconnectMonitor();
+    monitor.initialize();
+
+    const watcher = watch(codexLogDirPath, (_eventType, filename) => {
+      if (filename !== "codex-tui.log") {
+        return;
+      }
+      monitor.handleLogChange();
     });
 
     this.watchers.push(watcher);
