@@ -12,7 +12,7 @@ type MessageCopyState = "idle" | "copied";
 let copyStates = $state<Record<string, MessageCopyState>>({});
 const copyResetTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const NEAR_BOTTOM_THRESHOLD_PX = 160;
-const SESSION_REFRESH_FALLBACK_MS = 2000;
+const SESSION_REFRESH_FALLBACK_MS = 5000;
 
 let followLatest = $state(true);
 let hasPendingLatest = $state(false);
